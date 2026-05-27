@@ -75,28 +75,60 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Feature grid */}
-      <section className="border-t border-[--color-border] bg-[--color-surface] px-4 py-16">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="mb-10 text-center text-2xl font-bold text-[--color-text]">
+      {/* Feature section */}
+      <section className="border-t border-[--color-border] bg-[--color-surface] py-12 sm:py-16">
+        {/* Title */}
+        <div className="mx-auto max-w-6xl px-4">
+          <h2 className="mb-8 text-center text-2xl font-bold text-[--color-text] sm:mb-10">
             Everything a Muslim traveler needs
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((f) => (
-              <Link
-                key={f.href}
-                href={f.href}
-                className="group rounded-xl border border-[--color-border] bg-[--color-background] p-6 transition-shadow hover:shadow-md"
-              >
-                <span className="text-3xl">{f.icon}</span>
-                <h3 className="mt-3 font-semibold text-[--color-text] group-hover:text-primary-600">
-                  {f.title}
-                </h3>
-                <p className="mt-1 text-sm text-[--color-text-muted]">{f.desc}</p>
-              </Link>
-            ))}
-          </div>
         </div>
+
+        {/*
+          Mobile  : horizontal scroll slider (flex + snap)
+          sm+     : 2-column grid
+          lg+     : 4-column grid
+          -mx / px trick makes the slider bleed to screen edges on mobile
+          while the sm: variant re-contains it inside max-w-6xl
+        */}
+        <div
+          className={[
+            /* mobile: full-bleed horizontal scroller */
+            "flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory",
+            "px-4 pb-4",
+            /* sm+: switch to contained grid */
+            "sm:mx-auto sm:max-w-6xl sm:px-4",
+            "sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0",
+            /* lg+: 4-column grid */
+            "lg:grid-cols-4",
+          ].join(" ")}
+        >
+          {FEATURES.map((f) => (
+            <Link
+              key={f.href}
+              href={f.href}
+              className={[
+                "group rounded-xl border border-[--color-border] bg-[--color-background] p-6",
+                "transition-shadow hover:shadow-md",
+                /* mobile: fixed width so cards peek (75 vw ≈ 3/4 screen) */
+                "shrink-0 w-[75vw] max-w-[300px]",
+                /* sm+: let the grid control width */
+                "sm:w-auto sm:shrink",
+              ].join(" ")}
+            >
+              <span className="text-3xl">{f.icon}</span>
+              <h3 className="mt-3 font-semibold text-[--color-text] group-hover:text-primary-600">
+                {f.title}
+              </h3>
+              <p className="mt-1 text-sm text-[--color-text-muted]">{f.desc}</p>
+            </Link>
+          ))}
+        </div>
+
+        {/* Swipe hint — visible only on mobile */}
+        <p className="mt-3 text-center text-xs text-[--color-text-muted] sm:hidden">
+          Swipe to explore →
+        </p>
       </section>
 
       <footer className="border-t border-[--color-border] py-6 text-center text-xs text-[--color-text-muted]">

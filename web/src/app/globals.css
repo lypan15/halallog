@@ -48,3 +48,12 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
 }
+
+/* Custom utility: hide scrollbar while keeping scroll functionality */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
