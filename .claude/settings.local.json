@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"C:\\\\Users\\\\이성민\\\\halallog\"; Get-ChildItem -File | Where-Object { $_.Name -notmatch 'lock' } | Select-Object Name)"
+    ]
+  }
+}
