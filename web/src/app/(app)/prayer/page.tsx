@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Prayer Times",
@@ -18,9 +19,26 @@ export default function PrayerPage() {
       <header>
         <h1 className="text-2xl font-bold text-[--color-text]">Prayer</h1>
         <p className="mt-1 text-sm text-[--color-text-muted]">
-          Prayer times, Qibla direction, and nearby mosques
+          Prayer times and nearby mosques
         </p>
       </header>
+
+      <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-[--color-text]">Need Qibla direction now?</h2>
+            <p className="mt-1 text-sm text-[--color-text-muted]">
+              Open the dedicated compass screen for faster access.
+            </p>
+          </div>
+          <Link
+            href="/qibla"
+            className="inline-flex items-center justify-center rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+          >
+            Open Qibla Compass
+          </Link>
+        </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Prayer times card */}
@@ -52,15 +70,15 @@ export default function PrayerPage() {
           </button>
         </div>
 
-        {/* Qibla card */}
+        {/* Nearby mosques card */}
         <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-5">
-          <h2 className="mb-4 font-semibold text-[--color-text]">Qibla Direction</h2>
+          <h2 className="mb-4 font-semibold text-[--color-text]">Nearby Mosques</h2>
           <div className="flex flex-col items-center justify-center gap-3 py-6">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-primary-200 bg-primary-50 text-4xl">
-              🧭
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-blue-200 bg-blue-50 text-4xl">
+              🕌
             </div>
             <p className="text-center text-sm text-[--color-text-muted]">
-              Enable location to<br />find Qibla direction
+              Enable location to<br />find mosques around you
             </p>
           </div>
         </div>

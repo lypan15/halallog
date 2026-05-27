@@ -6,27 +6,23 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   {
     href: "/planner",
-    label: "Trip Planner",
+    label: "Planner",
     icon: "🗺️",
-    description: "Build your itinerary",
-  },
-  {
-    href: "/map",
-    label: "Halal Map",
-    icon: "📍",
-    description: "Find halal restaurants & mosques",
   },
   {
     href: "/prayer",
-    label: "Prayer",
+    label: "Pray",
     icon: "🕌",
-    description: "Times, Qibla & nearby mosques",
+  },
+  {
+    href: "/map",
+    label: "Eat",
+    icon: "🍽️",
   },
   {
     href: "/scanner",
-    label: "Scanner",
-    icon: "📷",
-    description: "Check halal status of food",
+    label: "Tour",
+    icon: "🧳",
   },
 ];
 
