@@ -4,26 +4,22 @@ const FEATURES = [
   {
     href: "/planner",
     icon: "🗺️",
-    title: "Trip Planner",
-    desc: "Build day-by-day halal itineraries with smart place search",
-  },
-  {
-    href: "/map",
-    icon: "📍",
-    title: "Halal Map",
-    desc: "Discover halal restaurants, mosques, and prayer rooms worldwide",
+    title: "Planner",
   },
   {
     href: "/prayer",
     icon: "🕌",
-    title: "Prayer Times",
-    desc: "Accurate prayer times, Qibla direction, and nearby mosques",
+    title: "Pray",
+  },
+  {
+    href: "/map",
+    icon: "🍽️",
+    title: "Eat",
   },
   {
     href: "/scanner",
-    icon: "📷",
-    title: "Halal Scanner",
-    desc: "Scan food labels instantly — Halal, Doubtful, or Haram",
+    icon: "🧳",
+    title: "Tour",
   },
 ];
 
@@ -120,7 +116,6 @@ export default function LandingPage() {
               <h3 className="mt-3 font-semibold text-[--color-text] group-hover:text-primary-600">
                 {f.title}
               </h3>
-              <p className="mt-1 text-sm text-[--color-text-muted]">{f.desc}</p>
             </Link>
           ))}
         </div>
