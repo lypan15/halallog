@@ -1,31 +1,43 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Trip Planner",
+  title: "Trips",
 };
 
 export default function PlannerPage() {
+  const trips = [
+    { id: "seoul-spring", title: "Seoul Spring Escape", days: "4 days", date: "Jun 12 - Jun 15" },
+    { id: "istanbul-weekend", title: "Istanbul Weekend", days: "3 days", date: "Jul 02 - Jul 04" },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold text-[--color-text]">Trip Planner</h1>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Build your day-by-day halal travel itinerary
-        </p>
+        <h1 className="text-2xl font-bold text-[--color-text]">Trips</h1>
       </header>
 
-      {/* Empty state */}
-      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[--color-border] bg-[--color-surface] py-20 text-center">
-        <span className="text-5xl">🗺️</span>
-        <h2 className="mt-4 text-lg font-semibold text-[--color-text]">
-          No trips yet
-        </h2>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Create your first trip to get started
+      <button className="w-full rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
+        + Add New Trip
+      </button>
+
+      <div className="space-y-3">
+        {trips.map((trip) => (
+          <article
+            key={trip.id}
+            className="rounded-xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm"
+          >
+            <h2 className="font-semibold text-[--color-text]">{trip.title}</h2>
+            <p className="mt-1 text-sm text-[--color-text-muted]">
+              {trip.days} · {trip.date}
+            </p>
+          </article>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-dashed border-[--color-border] bg-[--color-surface] p-5 text-center">
+        <p className="text-sm text-[--color-text-muted]">
+          Keep your itinerary simple: flights, halal food spots, and prayer-friendly stops.
         </p>
-        <button className="mt-6 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600">
-          + New Trip
-        </button>
       </div>
     </div>
   );

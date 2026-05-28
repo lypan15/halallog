@@ -6,13 +6,8 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   {
     href: "/planner",
-    label: "Planner",
-    icon: "🗺️",
-  },
-  {
-    href: "/prayer",
-    label: "Pray",
-    icon: "🕌",
+    label: "Trips",
+    icon: "🧳",
   },
   {
     href: "/map",
@@ -21,8 +16,19 @@ const NAV_ITEMS = [
   },
   {
     href: "/scanner",
+    label: "Scanner",
+    icon: "📷",
+    isCenter: true,
+  },
+  {
+    href: "/prayer",
+    label: "Pray",
+    icon: "🕌",
+  },
+  {
+    href: "/tour",
     label: "Tour",
-    icon: "🧳",
+    icon: "✨",
   },
 ];
 
@@ -30,40 +36,41 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-[--color-border] bg-[--color-background]/80 backdrop-blur-sm">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-14 items-center gap-1">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="mr-4 flex items-center gap-2 font-semibold text-[--color-text]"
-          >
-            <span className="text-xl">🌙</span>
-            <span className="text-primary-600 font-bold">HalalLog</span>
-          </Link>
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[--color-border] bg-[--color-surface]/95 backdrop-blur-sm">
+      <div className="mx-auto flex h-20 w-full max-w-6xl items-end justify-between px-4 pb-3">
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          if (item.isCenter) {
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="relative -mt-10 inline-flex flex-col items-center justify-center"
+              >
+                <span className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-[--color-background] bg-primary-600 text-2xl text-white shadow-lg transition-transform hover:scale-105">
+                  {item.icon}
+                </span>
+                <span className="mt-1 text-xs font-semibold text-primary-700">{item.label}</span>
+              </Link>
+            );
+          }
 
-          {/* Tab items */}
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {NAV_ITEMS.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                    isActive
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-[--color-text-muted] hover:bg-[--color-surface] hover:text-[--color-text]",
-                  ].join(" ")}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={[
+                "inline-flex min-w-14 flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
+                isActive
+                  ? "text-primary-700"
+                  : "text-[--color-text-muted] hover:text-[--color-text]",
+              ].join(" ")}
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );
