@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(cd \"C:\\\\Users\\\\이성민\\\\halallog\"; Get-ChildItem -File | Where-Object { $_.Name -notmatch 'lock' } | Select-Object Name)"
+      "PowerShell(cd \"C:\\\\Users\\\\이성민\\\\halallog\"; Get-ChildItem -File | Where-Object { $_.Name -notmatch 'lock' } | Select-Object Name)",
+      "PowerShell(app *)",
+      "PowerShell(npm run *)",
+      "PowerShell(npx playwright --version 2>&1 | Select-Object -First 3)",
+      "Skill(update-config)",
+      "PowerShell(Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest \"http://localhost:3001\" -TimeoutSec 5 -UseBasicParsing; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(try { $r = Invoke-WebRequest \"http://localhost:3000\" -TimeoutSec 5 -UseBasicParsing; \"3000: $\\($r.StatusCode\\)\" } catch { \"3000: not up\" }; try { $r = Invoke-WebRequest \"http://localhost:3001\" -TimeoutSec 5 -UseBasicParsing; \"3001: $\\($r.StatusCode\\)\" } catch { \"3001: not up\" })"
     ]
   }
 }

@@ -9,8 +9,8 @@ export type TripRecord = {
   createdAt: string;
 };
 
-export type TripPlace = { id: string; name: string; category: string; icon: string };
-export type TripBudgetItem = { id: string; category: string; amount: number; date: string };
+export type TripPlace = { id: string; name: string; category: string; icon: string; time?: string };
+export type TripBudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string };
 export type TripChecklistItem = { id: string; text: string; done: boolean };
 export type TripChecklistSections = {
   essential: TripChecklistItem[];
@@ -127,8 +127,8 @@ export function defaultTripDetail(): TripDetailRecord {
       0: [{ id: "default-1", name: "Myeongdong Mosque", category: "Mosque", icon: "🕌" }],
     },
     budgetItems: [
-      { id: "b1", category: "🍽️Food", amount: 28, date: "Day 1" },
-      { id: "b2", category: "✈️Transport", amount: 65, date: "Day 2" },
+      { id: "b1", category: "🍽️ Food", subcategory: "Breakfast", amount: 28, date: "Day 1" },
+      { id: "b2", category: "🚌 Transport", subcategory: "Subway", amount: 65, date: "Day 2" },
     ],
     checklistSections: DEFAULT_CHECKLIST,
   };
