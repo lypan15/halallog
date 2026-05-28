@@ -1,14 +1,15 @@
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Trips",
-};
+import Link from "next/link";
+import { useState } from "react";
+import {
+  countTripDays,
+  formatTripDateRange,
+  getTrips,
+} from "@/lib/trips-storage";
 
 export default function PlannerPage() {
-  const trips = [
-    { id: "seoul-spring", title: "Seoul Spring Escape", days: "4 days", date: "Jun 12 - Jun 15" },
-    { id: "istanbul-weekend", title: "Istanbul Weekend", days: "3 days", date: "Jul 02 - Jul 04" },
-  ];
+  const [trips] = useState(getTrips);
 
   return (
     <div className="space-y-5">
@@ -16,21 +17,26 @@ export default function PlannerPage() {
         <h1 className="text-2xl font-bold text-[--color-text]">Trips</h1>
       </header>
 
-      <button className="w-full rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
+      <Link
+        href="/planner/new"
+        className="block w-full rounded-xl bg-primary-600 px-5 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+      >
         + Add New Trip
-      </button>
+      </Link>
 
       <div className="space-y-3">
         {trips.map((trip) => (
-          <article
+          <Link
             key={trip.id}
+            href={`/planner/${trip.id}`}
             className="rounded-xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm"
           >
             <h2 className="font-semibold text-[--color-text]">{trip.title}</h2>
             <p className="mt-1 text-sm text-[--color-text-muted]">
-              {trip.days} · {trip.date}
+              {countTripDays(trip.startDate, trip.endDate)} · {formatTripDateRange(trip.startDate, trip.endDate)}
             </p>
-          </article>
+            <p className="mt-1 text-xs text-[--color-text-muted]">With {trip.companion}</p>
+          </Link>
         ))}
       </div>
 
