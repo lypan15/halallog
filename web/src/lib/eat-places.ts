@@ -1,3 +1,5 @@
+export type DietTag = "Halal" | "Vegetarian" | "Pescatarian" | "Vegan";
+
 export type EatPlace = {
   id: string;
   name: string;
@@ -6,6 +8,7 @@ export type EatPlace = {
   area: string;
   rating: number;
   description: string;
+  dietTags: DietTag[];
 };
 
 export const EAT_PLACES: EatPlace[] = [
@@ -17,6 +20,7 @@ export const EAT_PLACES: EatPlace[] = [
     area: "Myeongdong",
     rating: 4.8,
     description: "Certified halal Korean fusion with prayer room nearby.",
+    dietTags: ["Halal"],
   },
   {
     id: "green-minaret",
@@ -26,6 +30,7 @@ export const EAT_PLACES: EatPlace[] = [
     area: "Itaewon",
     rating: 4.6,
     description: "Family-friendly menu and late-night service.",
+    dietTags: ["Halal"],
   },
   {
     id: "city-garden-cafe",
@@ -35,5 +40,26 @@ export const EAT_PLACES: EatPlace[] = [
     area: "Hongdae",
     rating: 4.2,
     description: "Vegetarian-heavy menu with halal-friendly options.",
+    dietTags: ["Vegetarian"],
+  },
+  {
+    id: "ocean-table",
+    name: "Ocean Table",
+    distance: "1.5km",
+    category: "General",
+    area: "Yongsan",
+    rating: 4.3,
+    description: "Fresh seafood and pescatarian-friendly dishes.",
+    dietTags: ["Pescatarian"],
+  },
+  {
+    id: "green-roots",
+    name: "Green Roots",
+    distance: "2.0km",
+    category: "General",
+    area: "Mapo",
+    rating: 4.5,
+    description: "100% plant-based menu, fully vegan.",
+    dietTags: ["Vegan", "Vegetarian"],
   },
 ];

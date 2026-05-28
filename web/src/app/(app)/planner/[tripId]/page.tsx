@@ -21,7 +21,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  buildDayTabs,
   defaultTripDetail,
   formatTripDateRange,
   getTripById,
@@ -38,7 +37,7 @@ import {
 // ── Types ──────────────────────────────────────────────────────────────
 type TripTab = "summary" | "essential" | "itinerary" | "budget" | "checklist";
 type BudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string };
-type PlaceItem = { id: string; name: string; category: string; icon: string; time?: string };
+type PlaceItem = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; noteBody?: string; type?: "note" };
 type ChecklistItem = { id: string; text: string; done: boolean };
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -50,14 +49,24 @@ const TRIP_TABS: Array<{ id: TripTab; label: string }> = [
   { id: "checklist", label: "Checklist" },
 ];
 
+const QUICK_ADD_CATEGORIES = [
+  { label: "Place", icon: "📍" },
+  { label: "Restaurant", icon: "🍽️" },
+  { label: "Prayer Space", icon: "🕌" },
+  { label: "Activity", icon: "🎫" },
+  { label: "Shopping", icon: "🛍️" },
+  { label: "Flight", icon: "✈️" },
+  { label: "Stay", icon: "🏨" },
+  { label: "Car Rental", icon: "🚗" },
+  { label: "Train", icon: "🚂" },
+  { label: "Bus", icon: "🚌" },
+  { label: "Ferry", icon: "⛴️" },
+  { label: "Note", icon: "📝" },
+];
+
 const QUICK_ADD = [
-  "🕌 Prayer times checked",
-  "🧭 Qibla direction saved",
-  "🍱 Halal restaurants researched",
-  "🛏️ Prayer mat",
-  "🥪 Halal snacks packed",
-  "💊 Halal-certified medications",
-  "👗 Modest clothing packed",
+  "🕌 Prayer times checked", "🧭 Qibla direction saved", "🍱 Halal restaurants researched",
+  "🛏️ Prayer mat", "🥪 Halal snacks packed", "💊 Halal-certified medications", "👗 Modest clothing packed",
 ];
 
 const BUDGET_CATEGORY_MAP: Record<string, string[]> = {
@@ -71,53 +80,24 @@ const BUDGET_CATEGORY_MAP: Record<string, string[]> = {
 const BUDGET_PARENT_CATEGORIES = Object.keys(BUDGET_CATEGORY_MAP);
 
 const TRANSPORT_TYPES = [
-  { type: "Train", icon: "🚂" },
-  { type: "Car", icon: "🚗" },
-  { type: "Bus", icon: "🚌" },
-  { type: "Ferry", icon: "⛴️" },
-  { type: "Cruise", icon: "🚢" },
-  { type: "Taxi", icon: "🚕" },
+  { type: "Train", icon: "🚂" }, { type: "Car", icon: "🚗" }, { type: "Bus", icon: "🚌" },
+  { type: "Ferry", icon: "⛴️" }, { type: "Cruise", icon: "🚢" }, { type: "Taxi", icon: "🚕" },
 ];
-
 const TRANSPORT_ICON_MAP: Record<string, string> = {
   Train: "🚂", Car: "🚗", Bus: "🚌", Ferry: "⛴️", Cruise: "🚢", Taxi: "🚕",
 };
-
-const FAB_CATEGORIES = [
-  {
-    section: "Most Used",
-    items: [
-      { label: "Place", icon: "📍" },
-      { label: "Restaurant", icon: "🍽️" },
-      { label: "Prayer Space", icon: "🕌" },
-      { label: "Activity", icon: "🎫" },
-      { label: "Shopping", icon: "🛍️" },
-    ],
-  },
-  {
-    section: "Getting Around",
-    items: [
-      { label: "Flight", icon: "✈️" },
-      { label: "Stay", icon: "🏨" },
-      { label: "Car Rental", icon: "🚗" },
-      { label: "Train", icon: "🚂" },
-      { label: "Bus", icon: "🚌" },
-      { label: "Ferry", icon: "⛴️" },
-    ],
-  },
-  {
-    section: "Other",
-    items: [{ label: "Memo", icon: "📝" }],
-  },
-];
 
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // ── Helpers ────────────────────────────────────────────────────────────
-function formatDate(d: Date) {
+function fmtDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function fmtDayTab(d: Date) {
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function formatDayHeader(dateStr: string): string {
@@ -130,20 +110,8 @@ function getCategoryIcon(cat: string): string {
   return cat.split(" ")[0] ?? "";
 }
 
-type TimelineItem = {
-  id: string;
-  time: string;
-  icon: string;
-  line1: string;
-  line2?: string;
-  line3?: string;
-};
-
-type TimelineGroup = {
-  date: string;
-  dateLabel: string;
-  items: TimelineItem[];
-};
+type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string };
+type TimelineGroup = { date: string; dateLabel: string; items: TimelineItem[] };
 
 function buildTimeline(info: EssentialInfo): TimelineGroup[] {
   const byDate: Record<string, TimelineItem[]> = {};
@@ -155,9 +123,7 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
 
   for (const f of info.flights) {
     add(f.departureDate, {
-      id: f.id,
-      time: f.departureTime,
-      icon: "✈️",
+      id: f.id, time: f.departureTime, icon: "✈️",
       line1: [f.from, f.to].filter(Boolean).join(" → ") || "Flight",
       line2: [f.flightNumber, f.airline].filter(Boolean).join(" · ") || undefined,
       line3: f.arrivalTime ? `Arrival: ${f.arrivalTime}` : undefined,
@@ -165,20 +131,25 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
   }
 
   for (const s of info.stays) {
-    add(s.checkInDate, {
-      id: s.id,
-      time: s.checkInTime,
-      icon: "🏨",
-      line1: s.propertyName || "Stay",
-      line2: s.checkInTime ? `Check-in ${s.checkInTime}` : undefined,
-    });
+    if (s.checkInDate) {
+      add(s.checkInDate, {
+        id: `${s.id}-in`, time: s.checkInTime, icon: "🏨",
+        line1: s.propertyName || "Stay",
+        line2: s.checkInTime ? `Check-in ${s.checkInTime}` : "Check-in",
+      });
+    }
+    if (s.checkOutDate) {
+      add(s.checkOutDate, {
+        id: `${s.id}-out`, time: s.checkOutTime, icon: "🏨",
+        line1: s.propertyName || "Stay",
+        line2: s.checkOutTime ? `Check-out ${s.checkOutTime}` : "Check-out",
+      });
+    }
   }
 
   for (const t of info.transports) {
     add(t.date, {
-      id: t.id,
-      time: t.time,
-      icon: TRANSPORT_ICON_MAP[t.type] ?? "🚌",
+      id: t.id, time: t.time, icon: TRANSPORT_ICON_MAP[t.type] ?? "🚌",
       line1: [t.from, t.to].filter(Boolean).join(" → ") || t.type,
       line2: t.type || undefined,
     });
@@ -187,13 +158,11 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
   return Object.entries(byDate)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, items]) => ({
-      date,
-      dateLabel: formatDayHeader(date),
+      date, dateLabel: formatDayHeader(date),
       items: [...items].sort((a, b) => (a.time || "").localeCompare(b.time || "")),
     }));
 }
 
-// ── Empty draft factories ──────────────────────────────────────────────
 const emptyFlight = (): Omit<FlightItem, "id"> => ({
   from: "", to: "", departureDate: "", departureTime: "",
   arrivalDate: "", arrivalTime: "", airline: "", flightNumber: "",
@@ -206,7 +175,7 @@ const emptyTransport = (): Omit<TransportItem, "id"> => ({
   type: "Train", from: "", to: "", date: "", time: "",
 });
 
-// ── Main Component ────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────
 export default function TripDetailPage() {
   const params = useParams<{ tripId: string }>();
   const tripId = typeof params.tripId === "string" ? params.tripId : "";
@@ -219,18 +188,8 @@ export default function TripDetailPage() {
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
   const [customChecklistInput, setCustomChecklistInput] = useState("");
 
-  // Inline trip name editing
-  const [editingName, setEditingName] = useState(false);
-  const [nameValue, setNameValue] = useState(
-    () =>
-      initialTrip?.tripName ??
-      initialTrip?.title ??
-      tripId.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-  );
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  // Date popup
-  const [showDatePopup, setShowDatePopup] = useState(false);
+  // Combined trip edit popup (name + dates)
+  const [showEditPopup, setShowEditPopup] = useState(false);
 
   // Essential Info
   const [essentialInfo, setEssentialInfo] = useState<EssentialInfo>(
@@ -243,12 +202,13 @@ export default function TripDetailPage() {
   const [draftStay, setDraftStay] = useState(emptyStay());
   const [draftTransport, setDraftTransport] = useState(emptyTransport());
 
-  // Itinerary
+  // Itinerary quick-add
   const [memoFocused, setMemoFocused] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
   const [fabCategory, setFabCategory] = useState<{ label: string; icon: string } | null>(null);
   const [fabInput, setFabInput] = useState("");
+  const [fabNoteBody, setFabNoteBody] = useState("");
   const fabInputRef = useRef<HTMLInputElement>(null);
+  const fabTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Budget
   const [showStats, setShowStats] = useState(false);
@@ -259,12 +219,8 @@ export default function TripDetailPage() {
 
   // Persistent detail data
   const [notesByDay, setNotesByDay] = useState<Record<number, string>>(detail.notesByDay ?? {});
-  const [placesByDay, setPlacesByDay] = useState<Record<number, PlaceItem[]>>(
-    detail.placesByDay ?? defaultTripDetail().placesByDay
-  );
-  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>(
-    detail.budgetItems ?? defaultTripDetail().budgetItems
-  );
+  const [placesByDay, setPlacesByDay] = useState<Record<number, PlaceItem[]>>(detail.placesByDay ?? {});
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>(detail.budgetItems ?? []);
   const [checklistSections, setChecklistSections] = useState<{
     essential: ChecklistItem[];
     packing: ChecklistItem[];
@@ -274,8 +230,27 @@ export default function TripDetailPage() {
   const tripStart = tripMeta?.startDate ?? "2026-08-16";
   const tripEnd = tripMeta?.endDate ?? "2026-08-18";
   const destination = tripMeta?.destination ?? tripId.replace(/-/g, " ");
-  const companion = tripMeta?.companion ?? "Solo";
-  const days = useMemo(() => buildDayTabs(tripStart, tripEnd), [tripStart, tripEnd]);
+
+  const nameValue = tripMeta?.tripName ?? tripMeta?.title ??
+    tripId.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // Day dates array for Itinerary tabs
+  const dayDates = useMemo(() => {
+    const start = new Date(tripStart + "T00:00:00");
+    const end = new Date(tripEnd + "T00:00:00");
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return [new Date("2026-08-16T00:00:00"), new Date("2026-08-17T00:00:00"), new Date("2026-08-18T00:00:00")];
+    }
+    const result: Date[] = [];
+    let d = new Date(start);
+    let i = 0;
+    while (d <= end && i < 30) {
+      result.push(new Date(d));
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+      i++;
+    }
+    return result;
+  }, [tripStart, tripEnd]);
 
   const totalBudget = budgetItems.reduce((sum, item) => sum + item.amount, 0);
   const dayPlaces = placesByDay[currentDayIndex] ?? [];
@@ -287,7 +262,6 @@ export default function TripDetailPage() {
     ...checklistSections.quick,
   ];
   const checklistDone = allChecklist.filter((i) => i.done).length;
-
   const timeline = useMemo(() => buildTimeline(essentialInfo), [essentialInfo]);
 
   const sensors = useSensors(
@@ -295,40 +269,26 @@ export default function TripDetailPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Auto-save detail
   useEffect(() => {
     saveTripDetail(tripId, { notesByDay, placesByDay, budgetItems, checklistSections, essentialInfo });
   }, [tripId, notesByDay, placesByDay, budgetItems, checklistSections, essentialInfo]);
 
-  // Focus name input on edit
   useEffect(() => {
-    if (editingName) {
-      setTimeout(() => nameInputRef.current?.focus(), 20);
-    }
-  }, [editingName]);
-
-  // Focus FAB input when category selected
-  useEffect(() => {
-    if (fabCategory) {
+    if (fabCategory?.label !== "Note" && fabCategory) {
       setTimeout(() => fabInputRef.current?.focus(), 20);
+    }
+    if (fabCategory?.label === "Note") {
+      setTimeout(() => fabTextareaRef.current?.focus(), 20);
     }
   }, [fabCategory]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
-  const saveTripName = () => {
+  const saveTripEdit = (newName: string, start: string, end: string) => {
     if (!tripMeta) return;
-    const updated = { ...tripMeta, tripName: nameValue.trim() || tripMeta.title, title: nameValue.trim() || tripMeta.title };
+    const updated = { ...tripMeta, tripName: newName.trim() || tripMeta.title, title: newName.trim() || tripMeta.title, startDate: start, endDate: end };
     upsertTrip(updated);
     setTripMeta(updated);
-    setEditingName(false);
-  };
-
-  const saveTripDates = (start: string, end: string) => {
-    if (!tripMeta) return;
-    const updated = { ...tripMeta, startDate: start, endDate: end };
-    upsertTrip(updated);
-    setTripMeta(updated);
-    setShowDatePopup(false);
+    setShowEditPopup(false);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -355,6 +315,26 @@ export default function TripDetailPage() {
     setFabCategory(null);
   };
 
+  const addFabNote = () => {
+    setPlacesByDay((prev) => ({
+      ...prev,
+      [currentDayIndex]: [
+        ...(prev[currentDayIndex] ?? []),
+        {
+          id: `${Date.now()}`,
+          name: fabInput.trim(),
+          category: "Note",
+          icon: "📝",
+          noteBody: fabNoteBody.trim(),
+          type: "note" as const,
+        },
+      ],
+    }));
+    setFabInput("");
+    setFabNoteBody("");
+    setFabCategory(null);
+  };
+
   const removePlace = (id: string) => {
     setPlacesByDay((prev) => ({
       ...prev,
@@ -369,36 +349,31 @@ export default function TripDetailPage() {
     }));
   };
 
+  const updatePlaceEndTime = (id: string, endTime: string) => {
+    setPlacesByDay((prev) => ({
+      ...prev,
+      [currentDayIndex]: (prev[currentDayIndex] ?? []).map((p) => p.id === id ? { ...p, endTime } : p),
+    }));
+  };
+
   const saveFlight = () => {
-    const item: FlightItem = { id: `${Date.now()}`, ...draftFlight };
-    setEssentialInfo((prev) => ({ ...prev, flights: [...prev.flights, item] }));
+    setEssentialInfo((prev) => ({ ...prev, flights: [...prev.flights, { id: `${Date.now()}`, ...draftFlight }] }));
     setDraftFlight(emptyFlight());
     setShowFlightForm(false);
   };
-
   const saveStay = () => {
-    const item: StayItem = { id: `${Date.now()}`, ...draftStay };
-    setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, item] }));
+    setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: `${Date.now()}`, ...draftStay }] }));
     setDraftStay(emptyStay());
     setShowStayForm(false);
   };
-
   const saveTransport = () => {
-    const item: TransportItem = { id: `${Date.now()}`, ...draftTransport };
-    setEssentialInfo((prev) => ({ ...prev, transports: [...prev.transports, item] }));
+    setEssentialInfo((prev) => ({ ...prev, transports: [...prev.transports, { id: `${Date.now()}`, ...draftTransport }] }));
     setDraftTransport(emptyTransport());
     setShowTransportForm(false);
   };
-
-  const deleteFlight = (id: string) => {
-    setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
-  };
-  const deleteStay = (id: string) => {
-    setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
-  };
-  const deleteTransport = (id: string) => {
-    setEssentialInfo((prev) => ({ ...prev, transports: prev.transports.filter((t) => t.id !== id) }));
-  };
+  const deleteFlight = (id: string) => setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
+  const deleteStay = (id: string) => setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
+  const deleteTransport = (id: string) => setEssentialInfo((prev) => ({ ...prev, transports: prev.transports.filter((t) => t.id !== id) }));
 
   const toggleChecklist = (section: "essential" | "packing" | "quick", id: string) => {
     setChecklistSections((prev) => ({
@@ -406,14 +381,12 @@ export default function TripDetailPage() {
       [section]: prev[section].map((item) => item.id === id ? { ...item, done: !item.done } : item),
     }));
   };
-
   const addQuickChecklist = (text: string) => {
     setChecklistSections((prev) => ({
       ...prev,
       quick: [...prev.quick, { id: `${Date.now()}-${text}`, text, done: false }],
     }));
   };
-
   const addBudgetItem = () => {
     const amount = Number(budgetAmount);
     if (!amount || !budgetDay.trim()) return;
@@ -430,7 +403,7 @@ export default function TripDetailPage() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-4 pb-10">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Link href="/planner" className="text-sm text-[--color-text-muted]">← Back</Link>
@@ -446,9 +419,7 @@ export default function TripDetailPage() {
             onClick={() => setActiveTab(tab.id)}
             className={[
               "rounded-lg px-3 py-1.5 text-xs whitespace-nowrap transition-colors font-medium",
-              activeTab === tab.id
-                ? "bg-[#2d6a4f] text-white"
-                : "text-[--color-text-muted] hover:bg-[--color-background]",
+              activeTab === tab.id ? "bg-[#2d6a4f] text-white" : "text-[--color-text-muted] hover:bg-[--color-background]",
             ].join(" ")}
           >
             {tab.label}
@@ -467,50 +438,22 @@ export default function TripDetailPage() {
               className="relative flex min-h-36 items-end rounded-xl p-4"
               style={{ background: "linear-gradient(135deg, #d8e7df 0%, #efe1d8 100%)" }}
             >
-              <div className="space-y-1.5">
-                {/* Trip name with inline edit */}
-                <div className="flex items-center gap-2">
-                  {editingName ? (
-                    <input
-                      ref={nameInputRef}
-                      value={nameValue}
-                      onChange={(e) => setNameValue(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && saveTripName()}
-                      onBlur={saveTripName}
-                      className="border-b border-[#2d6a4f] bg-transparent text-xl font-bold text-[--color-text] outline-none"
-                    />
-                  ) : (
-                    <>
-                      <p className="text-xl font-bold text-[--color-text]">{nameValue}</p>
-                      <button
-                        type="button"
-                        onClick={() => setEditingName(true)}
-                        className="text-base leading-none opacity-60 hover:opacity-100"
-                        aria-label="Edit trip name"
-                      >
-                        ✏️
-                      </button>
-                    </>
-                  )}
-                </div>
-                {/* Dates with edit */}
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-[--color-text-muted]">
-                    {formatTripDateRange(tripStart, tripEnd)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDatePopup(true)}
-                    className="text-xs leading-none opacity-60 hover:opacity-100"
-                    aria-label="Edit dates"
-                  >
-                    ✏️
-                  </button>
-                </div>
+              {/* Single edit button top-right */}
+              <button
+                type="button"
+                onClick={() => setShowEditPopup(true)}
+                className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 text-sm hover:bg-white/90 transition-colors"
+                aria-label="Edit trip"
+              >
+                ✏️
+              </button>
+              <div className="space-y-1">
+                <p className="text-xl font-bold text-[--color-text]">{nameValue}</p>
+                <p className="text-xs text-[--color-text-muted]">{formatTripDateRange(tripStart, tripEnd)}</p>
               </div>
             </div>
 
-            {/* Timeline (only shown when Essential Info has items) */}
+            {/* Timeline */}
             {timeline.length > 0 && (
               <div className="space-y-1">
                 {timeline.map((group) => (
@@ -518,9 +461,7 @@ export default function TripDetailPage() {
                     <p className="py-2 text-sm font-bold text-[--color-text]">{group.dateLabel}</p>
                     {group.items.map((item, idx) => (
                       <div key={item.id} className="flex gap-3">
-                        <div className="w-12 shrink-0 pt-0.5 text-right text-xs text-[--color-text-muted]">
-                          {item.time}
-                        </div>
+                        <div className="w-12 shrink-0 pt-0.5 text-right text-xs text-[--color-text-muted]">{item.time}</div>
                         <div className="flex flex-col items-center">
                           <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#2d6a4f]" />
                           {idx < group.items.length - 1 && (
@@ -528,15 +469,9 @@ export default function TripDetailPage() {
                           )}
                         </div>
                         <div className="flex-1 pb-3">
-                          <p className="text-sm font-medium text-[--color-text]">
-                            {item.icon} {item.line1}
-                          </p>
-                          {item.line2 && (
-                            <p className="text-xs text-[--color-text-muted]">{item.line2}</p>
-                          )}
-                          {item.line3 && (
-                            <p className="text-xs text-[--color-text-muted]">{item.line3}</p>
-                          )}
+                          <p className="text-sm font-medium text-[--color-text]">{item.icon} {item.line1}</p>
+                          {item.line2 && <p className="text-xs text-[--color-text-muted]">{item.line2}</p>}
+                          {item.line3 && <p className="text-xs text-[--color-text-muted]">{item.line3}</p>}
                         </div>
                       </div>
                     ))}
@@ -559,29 +494,17 @@ export default function TripDetailPage() {
         {/* ── Essential Info ── */}
         {activeTab === "essential" && (
           <div className="space-y-5">
-            {/* Quick add buttons */}
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => { setShowFlightForm(true); setShowStayForm(false); setShowTransportForm(false); }}
-                className="rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm font-medium text-[--color-text] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-              >
-                + Flight
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowStayForm(true); setShowFlightForm(false); setShowTransportForm(false); }}
-                className="rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm font-medium text-[--color-text] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-              >
-                + Stay
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowTransportForm(true); setShowFlightForm(false); setShowStayForm(false); }}
-                className="rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm font-medium text-[--color-text] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-              >
-                + Transport
-              </button>
+              {[["+ Flight", () => { setShowFlightForm(true); setShowStayForm(false); setShowTransportForm(false); }],
+                ["+ Stay", () => { setShowStayForm(true); setShowFlightForm(false); setShowTransportForm(false); }],
+                ["+ Transport", () => { setShowTransportForm(true); setShowFlightForm(false); setShowStayForm(false); }],
+              ].map(([label, handler]) => (
+                <button key={label as string} type="button" onClick={handler as () => void}
+                  className="rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm font-medium text-[--color-text] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
+                >
+                  {label as string}
+                </button>
+              ))}
             </div>
 
             {/* Flight form */}
@@ -589,38 +512,24 @@ export default function TripDetailPage() {
               <div className="space-y-3 rounded-xl border border-[--color-border] bg-[--color-background] p-4">
                 <p className="font-medium text-[--color-text]">✈️ Flight Details</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">From</label>
-                    <input value={draftFlight.from} onChange={(e) => setDraftFlight((p) => ({ ...p, from: e.target.value }))} placeholder="ICN" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">To</label>
-                    <input value={draftFlight.to} onChange={(e) => setDraftFlight((p) => ({ ...p, to: e.target.value }))} placeholder="NRT" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Departure date</label>
-                    <input type="date" value={draftFlight.departureDate} onChange={(e) => setDraftFlight((p) => ({ ...p, departureDate: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Departure time</label>
-                    <input type="time" value={draftFlight.departureTime} onChange={(e) => setDraftFlight((p) => ({ ...p, departureTime: e.target.value }))} placeholder="HH:MM" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Arrival date</label>
-                    <input type="date" value={draftFlight.arrivalDate} onChange={(e) => setDraftFlight((p) => ({ ...p, arrivalDate: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Arrival time</label>
-                    <input type="time" value={draftFlight.arrivalTime} onChange={(e) => setDraftFlight((p) => ({ ...p, arrivalTime: e.target.value }))} placeholder="HH:MM" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Airline</label>
-                    <input value={draftFlight.airline} onChange={(e) => setDraftFlight((p) => ({ ...p, airline: e.target.value }))} placeholder="Korean Air" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Flight number</label>
-                    <input value={draftFlight.flightNumber} onChange={(e) => setDraftFlight((p) => ({ ...p, flightNumber: e.target.value }))} placeholder="KE703" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
+                  {[["From", "from", "ICN"], ["To", "to", "NRT"]].map(([lbl, key, ph]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
+                      <input value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} placeholder={ph} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    </div>
+                  ))}
+                  {[["Departure date", "departureDate", "date"], ["Departure time", "departureTime", "time"], ["Arrival date", "arrivalDate", "date"], ["Arrival time", "arrivalTime", "time"]].map(([lbl, key, type]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
+                      <input type={type} value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    </div>
+                  ))}
+                  {[["Airline", "airline", "Korean Air"], ["Flight number", "flightNumber", "KE703"]].map(([lbl, key, ph]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
+                      <input value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} placeholder={ph} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    </div>
+                  ))}
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={saveFlight} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
@@ -629,7 +538,6 @@ export default function TripDetailPage() {
               </div>
             )}
 
-            {/* Saved flight cards */}
             {essentialInfo.flights.length > 0 && (
               <div className="space-y-2">
                 {essentialInfo.flights.map((f) => (
@@ -637,19 +545,13 @@ export default function TripDetailPage() {
                     <div>
                       <p className="text-sm font-medium text-[--color-text]">✈️ {[f.from, f.to].filter(Boolean).join(" → ") || "Flight"}</p>
                       {(f.flightNumber || f.airline) && <p className="text-xs text-[--color-text-muted]">{[f.flightNumber, f.airline].filter(Boolean).join(" · ")}</p>}
-                      {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {f.departureTime} {f.arrivalDate && f.arrivalDate !== f.departureDate ? `→ ${f.arrivalDate}` : ""} {f.arrivalTime}</p>}
+                      {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {f.departureTime}{f.arrivalDate && f.arrivalDate !== f.departureDate ? ` → ${f.arrivalDate}` : ""} {f.arrivalTime}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteFlight(f.id)} className="text-xs text-[#c4704a]">Delete</button>
+                    <button type="button" onClick={() => deleteFlight(f.id)} className="text-xs text-[#c4704a]">✕</button>
                   </div>
                 ))}
                 {!showFlightForm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFlightForm(true)}
-                    className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-                  >
-                    + Add Another Flight
-                  </button>
+                  <button type="button" onClick={() => setShowFlightForm(true)} className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">+ Add Another Flight</button>
                 )}
               </div>
             )}
@@ -663,22 +565,12 @@ export default function TripDetailPage() {
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Property name</label>
                     <input value={draftStay.propertyName} onChange={(e) => setDraftStay((p) => ({ ...p, propertyName: e.target.value }))} placeholder="Hotel Name" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Check-in date</label>
-                    <input type="date" value={draftStay.checkInDate} onChange={(e) => setDraftStay((p) => ({ ...p, checkInDate: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Check-in time</label>
-                    <input type="time" value={draftStay.checkInTime} onChange={(e) => setDraftStay((p) => ({ ...p, checkInTime: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Check-out date</label>
-                    <input type="date" value={draftStay.checkOutDate} onChange={(e) => setDraftStay((p) => ({ ...p, checkOutDate: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Check-out time</label>
-                    <input type="time" value={draftStay.checkOutTime} onChange={(e) => setDraftStay((p) => ({ ...p, checkOutTime: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
+                  {[["Check-in date", "checkInDate", "date"], ["Check-in time", "checkInTime", "time"], ["Check-out date", "checkOutDate", "date"], ["Check-out time", "checkOutTime", "time"]].map(([lbl, key, type]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
+                      <input type={type} value={(draftStay as never)[key]} onChange={(e) => setDraftStay((p) => ({ ...p, [key]: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    </div>
+                  ))}
                   <div className="col-span-2">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Address</label>
                     <input value={draftStay.address} onChange={(e) => setDraftStay((p) => ({ ...p, address: e.target.value }))} placeholder="Address" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
@@ -691,7 +583,6 @@ export default function TripDetailPage() {
               </div>
             )}
 
-            {/* Saved stay cards */}
             {essentialInfo.stays.length > 0 && (
               <div className="space-y-2">
                 {essentialInfo.stays.map((s) => (
@@ -701,17 +592,11 @@ export default function TripDetailPage() {
                       {s.checkInDate && <p className="text-xs text-[--color-text-muted]">Check-in {s.checkInDate} {s.checkInTime}</p>}
                       {s.checkOutDate && <p className="text-xs text-[--color-text-muted]">Check-out {s.checkOutDate} {s.checkOutTime}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteStay(s.id)} className="text-xs text-[#c4704a]">Delete</button>
+                    <button type="button" onClick={() => deleteStay(s.id)} className="text-xs text-[#c4704a]">✕</button>
                   </div>
                 ))}
                 {!showStayForm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowStayForm(true)}
-                    className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-                  >
-                    + Add Another Stay
-                  </button>
+                  <button type="button" onClick={() => setShowStayForm(true)} className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">+ Add Another Stay</button>
                 )}
               </div>
             )}
@@ -722,38 +607,18 @@ export default function TripDetailPage() {
                 <p className="font-medium text-[--color-text]">🚌 Transport Details</p>
                 <div className="flex flex-wrap gap-2">
                   {TRANSPORT_TYPES.map((t) => (
-                    <button
-                      key={t.type}
-                      type="button"
-                      onClick={() => setDraftTransport((p) => ({ ...p, type: t.type }))}
-                      className={[
-                        "rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                        draftTransport.type === t.type
-                          ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
-                          : "border-[--color-border] text-[--color-text-muted]",
-                      ].join(" ")}
-                    >
-                      {t.icon} {t.type}
-                    </button>
+                    <button key={t.type} type="button" onClick={() => setDraftTransport((p) => ({ ...p, type: t.type }))}
+                      className={["rounded-lg border px-3 py-1.5 text-sm transition-colors", draftTransport.type === t.type ? "border-[#2d6a4f] bg-[#2d6a4f] text-white" : "border-[--color-border] text-[--color-text-muted]"].join(" ")}
+                    >{t.icon} {t.type}</button>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">From</label>
-                    <input value={draftTransport.from} onChange={(e) => setDraftTransport((p) => ({ ...p, from: e.target.value }))} placeholder="City / Station" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">To</label>
-                    <input value={draftTransport.to} onChange={(e) => setDraftTransport((p) => ({ ...p, to: e.target.value }))} placeholder="City / Station" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Date</label>
-                    <input type="date" value={draftTransport.date} onChange={(e) => setDraftTransport((p) => ({ ...p, date: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-[--color-text-muted]">Time</label>
-                    <input type="time" value={draftTransport.time} onChange={(e) => setDraftTransport((p) => ({ ...p, time: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                  </div>
+                  {[["From", "from", "text"], ["To", "to", "text"], ["Date", "date", "date"], ["Time", "time", "time"]].map(([lbl, key, type]) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
+                      <input type={type} value={(draftTransport as never)[key]} onChange={(e) => setDraftTransport((p) => ({ ...p, [key]: e.target.value }))} placeholder={type === "text" ? "City / Station" : undefined} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    </div>
+                  ))}
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={saveTransport} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
@@ -762,7 +627,6 @@ export default function TripDetailPage() {
               </div>
             )}
 
-            {/* Saved transport cards */}
             {essentialInfo.transports.length > 0 && (
               <div className="space-y-2">
                 {essentialInfo.transports.map((t) => (
@@ -771,27 +635,18 @@ export default function TripDetailPage() {
                       <p className="text-sm font-medium text-[--color-text]">{TRANSPORT_ICON_MAP[t.type] ?? "🚌"} {[t.from, t.to].filter(Boolean).join(" → ") || t.type}</p>
                       {t.date && <p className="text-xs text-[--color-text-muted]">{t.date} {t.time}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteTransport(t.id)} className="text-xs text-[#c4704a]">Delete</button>
+                    <button type="button" onClick={() => deleteTransport(t.id)} className="text-xs text-[#c4704a]">✕</button>
                   </div>
                 ))}
                 {!showTransportForm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowTransportForm(true)}
-                    className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-                  >
-                    + Add Another Transport
-                  </button>
+                  <button type="button" onClick={() => setShowTransportForm(true)} className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">+ Add Another Transport</button>
                 )}
               </div>
             )}
 
-            {/* Empty state */}
             {!showFlightForm && !showStayForm && !showTransportForm &&
               essentialInfo.flights.length === 0 && essentialInfo.stays.length === 0 && essentialInfo.transports.length === 0 && (
-                <p className="text-center text-sm text-[--color-text-muted]">
-                  Add your flights, stays, and transport to build your timeline.
-                </p>
+                <p className="text-center text-sm text-[--color-text-muted]">Add your flights, stays, and transport to build your timeline.</p>
             )}
           </div>
         )}
@@ -799,38 +654,51 @@ export default function TripDetailPage() {
         {/* ── Itinerary ── */}
         {activeTab === "itinerary" && (
           <div className="space-y-4">
-            {/* Day tabs */}
+            {/* Day tabs — two-line format */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-              {days.map((day, index) => (
+              {dayDates.map((date, index) => (
                 <button
-                  key={day}
+                  key={index}
                   type="button"
                   onClick={() => setCurrentDayIndex(index)}
                   className={[
-                    "rounded-full px-3 py-1.5 text-xs whitespace-nowrap font-medium",
+                    "flex shrink-0 flex-col items-center rounded-lg px-3 py-2 transition-colors",
                     currentDayIndex === index
                       ? "bg-[#2d6a4f] text-white"
                       : "border border-[--color-border] text-[--color-text-muted]",
                   ].join(" ")}
                 >
-                  {day}
+                  <span className="text-xs font-bold leading-tight">Day {index + 1}</span>
+                  <span className="text-[10px] leading-tight opacity-80">{fmtDayTab(date)}</span>
                 </button>
               ))}
             </div>
 
-            {/* Day memo */}
-            <textarea
-              value={noteText}
-              rows={memoFocused || noteText ? 3 : 1}
-              onFocus={() => setMemoFocused(true)}
-              onBlur={() => setMemoFocused(false)}
-              onChange={(e) => setNotesByDay((prev) => ({ ...prev, [currentDayIndex]: e.target.value }))}
-              placeholder="Day memo... (optional)"
-              className="w-full resize-none rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm transition-all duration-150 outline-none focus:border-[#2d6a4f]"
-            />
+            {/* Quick-add horizontal scroll */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+              {QUICK_ADD_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.label}
+                  type="button"
+                  onClick={() => {
+                    setFabCategory(fabCategory?.label === cat.label ? null : cat);
+                    setFabInput("");
+                    setFabNoteBody("");
+                  }}
+                  className={[
+                    "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                    fabCategory?.label === cat.label
+                      ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
+                      : "border-[#2d6a4f] bg-white text-[#2d6a4f] hover:bg-[#d8e7df]",
+                  ].join(" ")}
+                >
+                  {cat.icon} {cat.label}
+                </button>
+              ))}
+            </div>
 
-            {/* FAB input area */}
-            {fabCategory && (
+            {/* Inline input for selected category */}
+            {fabCategory && fabCategory.label !== "Note" && (
               <div className="flex gap-2 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
                 <span className="text-base">{fabCategory.icon}</span>
                 <input
@@ -846,13 +714,56 @@ export default function TripDetailPage() {
               </div>
             )}
 
+            {fabCategory?.label === "Note" && (
+              <div className="space-y-2 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📝</span>
+                  <input
+                    ref={fabInputRef}
+                    value={fabInput}
+                    onChange={(e) => setFabInput(e.target.value)}
+                    placeholder="Note title... (optional)"
+                    className="flex-1 bg-transparent text-sm outline-none"
+                  />
+                </div>
+                <textarea
+                  ref={fabTextareaRef}
+                  value={fabNoteBody}
+                  onChange={(e) => setFabNoteBody(e.target.value)}
+                  placeholder="Write anything freely..."
+                  rows={3}
+                  className="w-full resize-none rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm outline-none focus:border-[#2d6a4f]"
+                />
+                <div className="flex gap-2">
+                  <button type="button" onClick={addFabNote} className="rounded bg-[#2d6a4f] px-3 py-1.5 text-xs text-white">Add</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabNoteBody(""); }} className="rounded border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text-muted]">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* Day memo */}
+            <textarea
+              value={noteText}
+              rows={memoFocused || noteText ? 3 : 1}
+              onFocus={() => setMemoFocused(true)}
+              onBlur={() => setMemoFocused(false)}
+              onChange={(e) => setNotesByDay((prev) => ({ ...prev, [currentDayIndex]: e.target.value }))}
+              placeholder="Day memo... (optional)"
+              className="w-full resize-none rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm transition-all duration-150 outline-none focus:border-[#2d6a4f]"
+            />
+
             {/* Place list */}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={dayPlaces.map((p) => p.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {dayPlaces.map((place, idx) => (
                     <div key={place.id}>
-                      <SortablePlaceCard place={place} onRemove={removePlace} onTimeChange={updatePlaceTime} />
+                      <SortablePlaceCard
+                        place={place}
+                        onRemove={removePlace}
+                        onTimeChange={updatePlaceTime}
+                        onEndTimeChange={updatePlaceEndTime}
+                      />
                       {idx < dayPlaces.length - 1 && (
                         <p className="py-1 pl-14 text-xs text-[--color-text-muted]">~ Travel time: ~18 min</p>
                       )}
@@ -863,7 +774,7 @@ export default function TripDetailPage() {
             </DndContext>
 
             {dayPlaces.length === 0 && !fabCategory && (
-              <p className="text-center text-sm text-[--color-text-muted]">Tap + to add places for this day.</p>
+              <p className="text-center text-sm text-[--color-text-muted]">Tap a category above to add to this day.</p>
             )}
           </div>
         )}
@@ -875,97 +786,45 @@ export default function TripDetailPage() {
               <BudgetStats items={budgetItems} total={totalBudget} onBack={() => setShowStats(false)} />
             ) : (
               <>
-                {/* Total spend card */}
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
                   <div>
                     <p className="text-xs opacity-80">Total Spend</p>
                     <p className="text-2xl font-semibold">${totalBudget}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowStats(true)}
+                  <button type="button" onClick={() => setShowStats(true)}
                     className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 transition-colors"
                   >
                     View Stats
                   </button>
                 </div>
 
-                {/* Expense list */}
                 <div className="space-y-2">
                   {budgetItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
-                      <p className="text-[--color-text]">
-                        {getCategoryIcon(item.category)} {item.subcategory} · {item.date}
-                      </p>
+                      <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory} · {item.date}</p>
                       <p className="font-medium text-[--color-text]">${item.amount}</p>
                     </div>
                   ))}
-                  {budgetItems.length === 0 && (
-                    <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>
-                  )}
+                  {budgetItems.length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
                 </div>
 
-                {/* Add form */}
                 <div className="space-y-2 rounded-lg border border-[--color-border] bg-[--color-background] p-3">
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <select
-                      value={budgetCategory}
-                      onChange={(e) => {
-                        const cat = e.target.value;
-                        setBudgetCategory(cat);
-                        const subs = BUDGET_CATEGORY_MAP[cat];
-                        setBudgetSubcategory(subs.length > 0 ? subs[0] : "");
-                      }}
-                      className="rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm"
-                    >
-                      {BUDGET_PARENT_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
+                    <select value={budgetCategory} onChange={(e) => { const cat = e.target.value; setBudgetCategory(cat); const subs = BUDGET_CATEGORY_MAP[cat]; setBudgetSubcategory(subs.length > 0 ? subs[0] : ""); }} className="rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm">
+                      {BUDGET_PARENT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
-
                     {BUDGET_CATEGORY_MAP[budgetCategory].length > 0 ? (
-                      <select
-                        value={budgetSubcategory}
-                        onChange={(e) => setBudgetSubcategory(e.target.value)}
-                        className="rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm"
-                      >
-                        {BUDGET_CATEGORY_MAP[budgetCategory].map((sub) => (
-                          <option key={sub} value={sub}>{sub}</option>
-                        ))}
+                      <select value={budgetSubcategory} onChange={(e) => setBudgetSubcategory(e.target.value)} className="rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm">
+                        {BUDGET_CATEGORY_MAP[budgetCategory].map((sub) => <option key={sub} value={sub}>{sub}</option>)}
                       </select>
                     ) : (
-                      <input
-                        value={budgetSubcategory}
-                        onChange={(e) => setBudgetSubcategory(e.target.value)}
-                        placeholder="Note (optional)"
-                        className="rounded border border-[--color-border] px-2 py-1.5 text-sm"
-                      />
+                      <input value={budgetSubcategory} onChange={(e) => setBudgetSubcategory(e.target.value)} placeholder="Note (optional)" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                     )}
                   </div>
-
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <input
-                      value={budgetAmount}
-                      onChange={(e) => setBudgetAmount(e.target.value)}
-                      placeholder="Amount ($)"
-                      type="number"
-                      min="0"
-                      className="rounded border border-[--color-border] px-2 py-1.5 text-sm"
-                    />
-                    <input
-                      value={budgetDay}
-                      onChange={(e) => setBudgetDay(e.target.value)}
-                      placeholder="Day (e.g. 1)"
-                      inputMode="numeric"
-                      className="rounded border border-[--color-border] px-2 py-1.5 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={addBudgetItem}
-                      className="rounded bg-[#2d6a4f] px-2 py-1.5 text-sm font-medium text-white"
-                    >
-                      + Add Cost
-                    </button>
+                    <input value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} placeholder="Amount ($)" type="number" min="0" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    <input value={budgetDay} onChange={(e) => setBudgetDay(e.target.value)} placeholder="Day (e.g. 1)" inputMode="numeric" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    <button type="button" onClick={addBudgetItem} className="rounded bg-[#2d6a4f] px-2 py-1.5 text-sm font-medium text-white">+ Add Cost</button>
                   </div>
                 </div>
               </>
@@ -980,43 +839,19 @@ export default function TripDetailPage() {
               <p className="text-sm font-medium text-[--color-text]">Quick Add</p>
               <div className="flex flex-wrap gap-2">
                 {QUICK_ADD.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => addQuickChecklist(item)}
+                  <button key={item} type="button" onClick={() => addQuickChecklist(item)}
                     className="rounded-full border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
-                  >
-                    {item}
-                  </button>
+                  >{item}</button>
                 ))}
               </div>
               <div className="flex gap-2">
-                <input
-                  value={customChecklistInput}
-                  onChange={(e) => setCustomChecklistInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && customChecklistInput.trim()) {
-                      addQuickChecklist(customChecklistInput.trim());
-                      setCustomChecklistInput("");
-                    }
-                  }}
-                  placeholder="Custom item"
-                  className="flex-1 rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                <input value={customChecklistInput} onChange={(e) => setCustomChecklistInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && customChecklistInput.trim()) { addQuickChecklist(customChecklistInput.trim()); setCustomChecklistInput(""); } }}
+                  placeholder="Custom item" className="flex-1 rounded border border-[--color-border] px-2 py-1.5 text-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!customChecklistInput.trim()) return;
-                    addQuickChecklist(customChecklistInput.trim());
-                    setCustomChecklistInput("");
-                  }}
-                  className="rounded bg-[#2d6a4f] px-3 py-1.5 text-sm text-white"
-                >
-                  Add
-                </button>
+                <button type="button" onClick={() => { if (!customChecklistInput.trim()) return; addQuickChecklist(customChecklistInput.trim()); setCustomChecklistInput(""); }} className="rounded bg-[#2d6a4f] px-3 py-1.5 text-sm text-white">Add</button>
               </div>
             </div>
-
             <ChecklistSection title="Essential Documents" items={checklistSections.essential} onToggle={(id) => toggleChecklist("essential", id)} />
             <ChecklistSection title="General Packing" items={checklistSections.packing} onToggle={(id) => toggleChecklist("packing", id)} />
             <ChecklistSection title="Quick Added" items={checklistSections.quick} onToggle={(id) => toggleChecklist("quick", id)} />
@@ -1024,54 +859,14 @@ export default function TripDetailPage() {
         )}
       </div>
 
-      {/* ── FAB (Itinerary tab only) ── */}
-      {activeTab === "itinerary" && (
-        <div className="fixed bottom-20 right-6 z-[60]">
-          {/* Bubble menu */}
-          {fabOpen && !fabCategory && (
-            <div
-              className="absolute bottom-14 right-0 w-56 rounded-xl border border-[--color-border] bg-[--color-surface] shadow-xl"
-              style={{ animation: "fade-in 0.15s ease-out both" }}
-            >
-              {FAB_CATEGORIES.map((group) => (
-                <div key={group.section}>
-                  <p className="px-3 pt-2.5 pb-1 text-xs font-semibold text-[--color-text-muted]">{group.section}</p>
-                  {group.items.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => { setFabCategory(item); setFabOpen(false); }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[--color-text] hover:bg-[--color-background] transition-colors"
-                    >
-                      <span className="text-base">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <div className="h-2" />
-            </div>
-          )}
-
-          {/* FAB button */}
-          <button
-            type="button"
-            onClick={() => { setFabOpen((o) => !o); setFabCategory(null); setFabInput(""); }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2d6a4f] text-xl text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ transform: fabOpen ? "rotate(45deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }}
-          >
-            +
-          </button>
-        </div>
-      )}
-
-      {/* ── Date range popup ── */}
-      {showDatePopup && (
-        <DateRangePopup
+      {/* ── Trip Edit Popup ── */}
+      {showEditPopup && (
+        <TripEditPopup
+          initialName={nameValue}
           initialStart={tripStart}
           initialEnd={tripEnd}
-          onConfirm={saveTripDates}
-          onClose={() => setShowDatePopup(false)}
+          onConfirm={saveTripEdit}
+          onClose={() => setShowEditPopup(false)}
         />
       )}
     </div>
@@ -1081,42 +876,88 @@ export default function TripDetailPage() {
 // ── Sub-components ──────────────────────────────────────────────────────
 
 function SortablePlaceCard({
-  place,
-  onRemove,
-  onTimeChange,
+  place, onRemove, onTimeChange, onEndTimeChange,
 }: {
   place: PlaceItem;
   onRemove: (id: string) => void;
   onTimeChange: (id: string, time: string) => void;
+  onEndTimeChange: (id: string, endTime: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: place.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  if (place.type === "note") {
+    return (
+      <div ref={setNodeRef} style={style}
+        className="rounded-lg border border-[--color-border] bg-[#fef9f0] p-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <span {...attributes} {...listeners} className="mt-0.5 cursor-grab select-none text-lg text-[--color-text-muted] active:cursor-grabbing">⠿</span>
+            <div>
+              <p className="text-sm font-medium text-[--color-text]">📝 {place.name || "Note"}</p>
+              {place.noteBody && (
+                <p className="mt-1 whitespace-pre-wrap text-xs text-[--color-text-muted]">{place.noteBody}</p>
+              )}
+            </div>
+          </div>
+          <button type="button" onClick={() => onRemove(place.id)} className="shrink-0 text-sm text-[--color-text-muted] hover:text-[#c4704a]">✕</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+    <div ref={setNodeRef} style={style}
       className="flex items-center gap-2 rounded-lg border border-[--color-border] bg-[--color-background] p-3"
     >
       <span {...attributes} {...listeners} className="cursor-grab select-none text-lg text-[--color-text-muted] active:cursor-grabbing">⠿</span>
+
+      {/* Start time */}
       <input
         type="time"
         value={place.time ?? ""}
         onChange={(e) => onTimeChange(place.id, e.target.value)}
-        placeholder="time"
-        className="w-[4.5rem] rounded border border-[--color-border] bg-[--color-surface] px-1.5 py-1 text-xs text-[--color-text-muted]"
+        className="w-[4.5rem] shrink-0 rounded border border-[--color-border] bg-[--color-surface] px-1.5 py-1 text-xs text-[--color-text-muted]"
       />
-      <p className="flex-1 text-sm font-medium text-[--color-text]">{place.icon} {place.name}</p>
-      <button type="button" onClick={() => onRemove(place.id)} className="text-xs text-[#c4704a]">✕</button>
+
+      {/* End time */}
+      <span className="shrink-0 text-xs text-[--color-text-muted]">–</span>
+      {place.endTime === "open" ? (
+        <button type="button" onClick={() => onEndTimeChange(place.id, "")}
+          className="flex shrink-0 items-center gap-0.5 rounded-full border border-[--color-border] px-2 py-0.5 text-xs text-[--color-text-muted] hover:border-[#c4704a]"
+        >
+          Open-ended <span>×</span>
+        </button>
+      ) : place.endTime ? (
+        <div className="flex shrink-0 items-center gap-1">
+          <input type="time" value={place.endTime} onChange={(e) => onEndTimeChange(place.id, e.target.value)}
+            className="w-[4.5rem] rounded border border-[--color-border] bg-[--color-surface] px-1.5 py-1 text-xs text-[--color-text-muted]"
+          />
+          <button type="button" onClick={() => onEndTimeChange(place.id, "")} className="text-xs text-[--color-text-muted] hover:text-[#c4704a]">×</button>
+        </div>
+      ) : (
+        <select
+          value=""
+          onChange={(e) => {
+            const v = e.target.value;
+            onEndTimeChange(place.id, v === "custom" ? "12:00" : v);
+          }}
+          className="w-24 shrink-0 rounded border border-[--color-border] bg-[--color-surface] px-1 py-1 text-xs text-[--color-text-muted]"
+        >
+          <option value="">–</option>
+          <option value="open">Open-ended</option>
+          <option value="custom">Set time</option>
+        </select>
+      )}
+
+      <p className="flex-1 truncate text-sm font-medium text-[--color-text]">{place.icon} {place.name}</p>
+      <button type="button" onClick={() => onRemove(place.id)} className="shrink-0 text-sm text-[--color-text-muted] hover:text-[#c4704a]">✕</button>
     </div>
   );
 }
 
-function ChecklistSection({
-  title, items, onToggle,
-}: {
-  title: string;
-  items: ChecklistItem[];
-  onToggle: (id: string) => void;
-}) {
+function ChecklistSection({ title, items, onToggle }: { title: string; items: ChecklistItem[]; onToggle: (id: string) => void }) {
   return (
     <div className="rounded-lg border border-[--color-border] bg-[--color-background] p-3">
       <p className="mb-2 text-sm font-medium text-[--color-text]">{title}</p>
@@ -1133,13 +974,7 @@ function ChecklistSection({
   );
 }
 
-function BudgetStats({
-  items, total, onBack,
-}: {
-  items: { category: string; amount: number }[];
-  total: number;
-  onBack: () => void;
-}) {
+function BudgetStats({ items, total, onBack }: { items: BudgetItem[]; total: number; onBack: () => void }) {
   const categoryTotals = items.reduce<Record<string, number>>((acc, item) => {
     acc[item.category] = (acc[item.category] ?? 0) + item.amount;
     return acc;
@@ -1148,7 +983,7 @@ function BudgetStats({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onBack} className="text-sm text-[--color-text-muted]">← Back</button>
+        <button type="button" onClick={onBack} className="rounded-lg border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">← Budget</button>
         <p className="font-semibold text-[--color-text]">Spending by Category</p>
       </div>
       <div className="space-y-3">
@@ -1156,32 +991,29 @@ function BudgetStats({
           <div key={cat} className="space-y-1">
             <div className="flex justify-between text-sm">
               <p className="text-[--color-text]">{cat}</p>
-              <p className="font-medium text-[--color-text]">${amount}</p>
+              <p className="font-medium">${amount}</p>
             </div>
             <div className="h-2 rounded-full bg-[--color-border]">
-              <div
-                className="h-2 rounded-full bg-[#2d6a4f] transition-all"
-                style={{ width: `${total > 0 ? Math.round((amount / total) * 100) : 0}%` }}
-              />
+              <div className="h-2 rounded-full bg-[#2d6a4f] transition-all" style={{ width: `${total > 0 ? Math.round((amount / total) * 100) : 0}%` }} />
             </div>
           </div>
         ))}
-        {Object.keys(categoryTotals).length === 0 && (
-          <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>
-        )}
+        {Object.keys(categoryTotals).length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
       </div>
     </div>
   );
 }
 
-function DateRangePopup({
-  initialStart, initialEnd, onConfirm, onClose,
+function TripEditPopup({
+  initialName, initialStart, initialEnd, onConfirm, onClose,
 }: {
+  initialName: string;
   initialStart: string;
   initialEnd: string;
-  onConfirm: (start: string, end: string) => void;
+  onConfirm: (name: string, start: string, end: string) => void;
   onClose: () => void;
 }) {
+  const [name, setName] = useState(initialName);
   const now = new Date();
   const [rangeStart, setRangeStart] = useState<Date | null>(() => {
     const d = new Date(initialStart + "T00:00:00");
@@ -1212,19 +1044,13 @@ function DateRangePopup({
   }, [calMonth]);
 
   const updateRange = (date: Date) => {
-    if (!rangeStart || (rangeStart && rangeEnd)) {
-      setRangeStart(date);
-      setRangeEnd(null);
-      return;
-    }
+    if (!rangeStart || (rangeStart && rangeEnd)) { setRangeStart(date); setRangeEnd(null); return; }
     if (date < rangeStart) { setRangeEnd(rangeStart); setRangeStart(date); return; }
     setRangeEnd(date);
   };
 
   const isEndpoint = (d: Date) =>
-    (rangeStart !== null && d.getTime() === rangeStart.getTime()) ||
-    (rangeEnd !== null && d.getTime() === rangeEnd.getTime());
-
+    (rangeStart?.getTime() === d.getTime()) || (rangeEnd?.getTime() === d.getTime());
   const isMiddle = (d: Date) => {
     if (!rangeStart || !rangeEnd) return false;
     const t = d.getTime();
@@ -1233,39 +1059,46 @@ function DateRangePopup({
 
   const navigate = (dir: "next" | "prev") => {
     if (animating) return;
-    setAnimating(true);
-    setWithTrans(true);
-    setSlideY(dir === "next" ? -100 : 100);
+    setAnimating(true); setWithTrans(true); setSlideY(dir === "next" ? -100 : 100);
     setTimeout(() => {
-      setWithTrans(false);
-      setSlideY(dir === "next" ? 100 : -100);
-      setCalMonth((p) => {
-        if (dir === "next") return p.month === 11 ? { year: p.year + 1, month: 0 } : { year: p.year, month: p.month + 1 };
-        return p.month === 0 ? { year: p.year - 1, month: 11 } : { year: p.year, month: p.month - 1 };
-      });
+      setWithTrans(false); setSlideY(dir === "next" ? 100 : -100);
+      setCalMonth((p) => dir === "next"
+        ? (p.month === 11 ? { year: p.year + 1, month: 0 } : { year: p.year, month: p.month + 1 })
+        : (p.month === 0 ? { year: p.year - 1, month: 11 } : { year: p.year, month: p.month - 1 })
+      );
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        setWithTrans(true);
-        setSlideY(0);
+        setWithTrans(true); setSlideY(0);
         setTimeout(() => setAnimating(false), 300);
       }));
     }, 300);
   };
 
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const fmtLabel = (d: Date) => `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
-  const label = !rangeStart ? "Select dates" : !rangeEnd ? `${fmtLabel(rangeStart)} – ?` :
-    `${fmtLabel(rangeStart)} – ${fmtLabel(rangeEnd)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
+  const dateLabel = !rangeStart ? "Select dates" : !rangeEnd ? `${fmtLabel(rangeStart)} – ?`
+    : `${fmtLabel(rangeStart)} – ${fmtLabel(rangeEnd)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-80 rounded-xl bg-[--color-surface] p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <p className="mb-3 text-center text-sm font-semibold text-[--color-text]">
+        <p className="mb-4 text-center text-sm font-semibold text-[--color-text]">Edit Trip</p>
+
+        {/* Trip name */}
+        <div className="mb-4 space-y-1">
+          <label className="text-xs text-[--color-text-muted]">Trip Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm outline-none focus:border-[#2d6a4f]"
+          />
+        </div>
+
+        {/* Calendar */}
+        <p className="mb-2 text-center text-xs font-semibold text-[--color-text]">
           {MONTHS[calMonth.month]} {calMonth.year}
         </p>
         <div className="grid grid-cols-7 text-center text-xs text-[--color-text-muted]">
-          {WEEK_DAYS.map((d) => <span key={d} className="py-1">{d}</span>)}
+          {WEEK_DAYS.map((d) => <span key={d} className="py-0.5">{d}</span>)}
         </div>
         <div
           className="overflow-hidden"
@@ -1273,42 +1106,34 @@ function DateRangePopup({
           onTouchEnd={(e) => { const delta = touchY.current - e.changedTouches[0].clientY; if (Math.abs(delta) >= 30) navigate(delta > 0 ? "next" : "prev"); }}
           onWheel={(e) => navigate(e.deltaY > 0 ? "next" : "prev")}
         >
-          <div
-            className="grid grid-cols-7"
-            style={{ transform: `translateY(${slideY}%)`, transition: withTrans ? "transform 0.3s ease" : "none" }}
-          >
+          <div className="grid grid-cols-7" style={{ transform: `translateY(${slideY}%)`, transition: withTrans ? "transform 0.3s ease" : "none" }}>
             {calDays.map((date, i) =>
               date ? (
-                <div
-                  key={date.toISOString()}
-                  className="flex items-center justify-center py-1"
+                <div key={date.toISOString()} className="flex items-center justify-center py-0.5"
                   style={{ backgroundColor: isMiddle(date) ? "rgba(45,106,79,0.15)" : undefined }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => updateRange(date)}
-                    className={[
-                      "flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors",
+                  <button type="button" onClick={() => updateRange(date)}
+                    className={["flex h-7 w-7 items-center justify-center rounded-full text-xs transition-colors",
                       isEndpoint(date) ? "bg-[#2d6a4f] text-white" : "text-[--color-text] hover:bg-[--color-border]",
                     ].join(" ")}
-                  >
-                    {date.getDate()}
-                  </button>
+                  >{date.getDate()}</button>
                 </div>
               ) : <span key={`e-${i}`} />
             )}
           </div>
         </div>
-        <p className="mt-2 rounded-lg bg-[--color-background] px-3 py-2 text-center text-xs text-[--color-text-muted]">{label}</p>
+
+        <p className="mt-2 rounded-lg bg-[--color-background] px-3 py-1.5 text-center text-xs text-[--color-text-muted]">{dateLabel}</p>
+
         <div className="mt-3 flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm">Cancel</button>
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm text-[--color-text-muted]">Cancel</button>
           <button
             type="button"
-            onClick={() => rangeStart && onConfirm(fmt(rangeStart), rangeEnd ? fmt(rangeEnd) : fmt(rangeStart))}
+            onClick={() => rangeStart && onConfirm(name, fmt(rangeStart), rangeEnd ? fmt(rangeEnd) : fmt(rangeStart))}
             disabled={!rangeStart}
             className="flex-1 rounded-lg bg-[#2d6a4f] py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            Confirm
+            Save
           </button>
         </div>
       </div>
