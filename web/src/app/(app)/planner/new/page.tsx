@@ -34,6 +34,8 @@ export default function NewTripPage() {
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
   const [companion, setCompanion] = useState("");
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [tripName, setTripName] = useState("");
+  const [description, setDescription] = useState("");
 
   // Calendar month navigation
   const [calendarMonth, setCalendarMonth] = useState({ year: now.getFullYear(), month: now.getMonth() });
@@ -138,10 +140,13 @@ export default function NewTripPage() {
     const tripSlug = slugifyTripId(finalDestination) || "new-trip";
     const startDate = rangeStart ? formatDate(rangeStart) : formatDate(new Date());
     const endDate = rangeEnd ? formatDate(rangeEnd) : startDate;
+    const finalName = tripName.trim() || `${finalDestination} Trip`;
 
     upsertTrip({
       id: tripSlug,
-      title: `${finalDestination} Trip`,
+      title: finalName,
+      tripName: finalName,
+      description: description.trim() || undefined,
       destination: finalDestination,
       startDate,
       endDate,
@@ -300,6 +305,30 @@ export default function NewTripPage() {
                   {style}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-[--color-text]">Trip Name</p>
+              <input
+                value={tripName}
+                onChange={(e) => setTripName(e.target.value)}
+                placeholder="My Tokyo Trip"
+                className="w-full rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm outline-none focus:border-primary-600"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-[--color-text]">
+                Description{" "}
+                <span className="text-xs font-normal text-[--color-text-muted]">optional</span>
+              </p>
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Solo adventure! 🌙"
+                className="w-full rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm outline-none focus:border-primary-600"
+              />
             </div>
           </div>
         </section>

@@ -1,6 +1,8 @@
 export type TripRecord = {
   id: string;
   title: string;
+  tripName?: string;
+  description?: string;
   destination: string;
   startDate: string;
   endDate: string;
@@ -18,11 +20,49 @@ export type TripChecklistSections = {
   quick: TripChecklistItem[];
 };
 
+export type FlightItem = {
+  id: string;
+  from: string;
+  to: string;
+  departureDate: string;
+  departureTime: string;
+  arrivalDate: string;
+  arrivalTime: string;
+  airline: string;
+  flightNumber: string;
+};
+
+export type StayItem = {
+  id: string;
+  propertyName: string;
+  checkInDate: string;
+  checkInTime: string;
+  checkOutDate: string;
+  checkOutTime: string;
+  address: string;
+};
+
+export type TransportItem = {
+  id: string;
+  type: string;
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+};
+
+export type EssentialInfo = {
+  flights: FlightItem[];
+  stays: StayItem[];
+  transports: TransportItem[];
+};
+
 export type TripDetailRecord = {
   notesByDay: Record<number, string>;
   placesByDay: Record<number, TripPlace[]>;
   budgetItems: TripBudgetItem[];
   checklistSections: TripChecklistSections;
+  essentialInfo: EssentialInfo;
 };
 
 const TRIPS_KEY = "halallog-trips";
@@ -32,6 +72,7 @@ const DEFAULT_TRIPS: TripRecord[] = [
   {
     id: "seoul-spring",
     title: "Seoul Spring Escape",
+    tripName: "Seoul Spring Escape",
     destination: "Seoul",
     startDate: "2026-06-12",
     endDate: "2026-06-15",
@@ -42,6 +83,7 @@ const DEFAULT_TRIPS: TripRecord[] = [
   {
     id: "istanbul-weekend",
     title: "Istanbul Weekend",
+    tripName: "Istanbul Weekend",
     destination: "Istanbul",
     startDate: "2026-07-02",
     endDate: "2026-07-04",
@@ -107,11 +149,11 @@ export function getTripById(id: string): TripRecord | null {
 }
 
 export function getTripDetail(id: string): TripDetailRecord {
-  if (typeof window === "undefined") {
-    return defaultTripDetail();
-  }
+  if (typeof window === "undefined") return defaultTripDetail();
   const key = `${TRIP_DETAIL_PREFIX}${id}`;
-  return parseJSON<TripDetailRecord>(window.localStorage.getItem(key), defaultTripDetail());
+  const saved = parseJSON<TripDetailRecord>(window.localStorage.getItem(key), defaultTripDetail());
+  if (!saved.essentialInfo) saved.essentialInfo = { flights: [], stays: [], transports: [] };
+  return saved;
 }
 
 export function saveTripDetail(id: string, detail: TripDetailRecord) {
@@ -131,6 +173,7 @@ export function defaultTripDetail(): TripDetailRecord {
       { id: "b2", category: "🚌 Transport", subcategory: "Subway", amount: 65, date: "Day 2" },
     ],
     checklistSections: DEFAULT_CHECKLIST,
+    essentialInfo: { flights: [], stays: [], transports: [] },
   };
 }
 
@@ -139,23 +182,23 @@ export function slugifyTripId(value: string): string {
 }
 
 export function formatTripDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
   const startLabel = `${start.toLocaleString("en-US", { month: "short" })} ${start.getDate()}`;
   const endLabel = `${end.toLocaleString("en-US", { month: "short" })} ${end.getDate()}`;
   return `${startLabel} - ${endLabel}`;
 }
 
 export function countTripDays(startDate: string, endDate: string): string {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
   const diff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   return `${Math.max(diff, 1)} days`;
 }
 
 export function buildDayTabs(startDate: string, endDate: string): string[] {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = new Date(startDate + "T00:00:00");
+  const end = new Date(endDate + "T00:00:00");
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return ["Day1 8/16", "Day2 8/17", "Day3 8/18"];
   }
