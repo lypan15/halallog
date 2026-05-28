@@ -36,8 +36,8 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[--color-border] bg-[--color-surface]/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-20 w-full max-w-6xl items-end justify-between px-4 pb-3">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[--color-border]/80 bg-[--color-surface]/90 backdrop-blur-md">
+      <div className="mx-auto flex h-[76px] w-full max-w-6xl items-end justify-between px-4 pb-2.5">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname.startsWith(item.href);
           if (item.isCenter) {
@@ -45,12 +45,12 @@ export function AppNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="relative -mt-10 inline-flex flex-col items-center justify-center"
+                className="relative -mt-9 inline-flex flex-col items-center justify-center"
               >
-                <span className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-[--color-background] bg-primary-600 text-2xl text-white shadow-lg transition-transform hover:scale-105">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-[--color-background] bg-primary-600 text-xl text-white shadow-md transition-transform hover:scale-105">
                   {item.icon}
                 </span>
-                <span className="mt-1 text-xs font-semibold text-primary-700">{item.label}</span>
+                <span className="mt-1 text-[11px] font-medium text-primary-700">{item.label}</span>
               </Link>
             );
           }
@@ -60,7 +60,7 @@ export function AppNav() {
               key={item.href}
               href={item.href}
               className={[
-                "inline-flex min-w-14 flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
+                "inline-flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors",
                 isActive
                   ? "text-primary-700"
                   : "text-[--color-text-muted] hover:text-[--color-text]",

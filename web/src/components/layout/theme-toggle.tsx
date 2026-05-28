@@ -29,11 +29,12 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[--color-border] bg-[--color-surface] text-lg shadow-sm transition-colors hover:border-primary-600"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[--color-border]/80 bg-[--color-surface] px-3 py-1.5 text-[11px] font-medium text-[--color-text-muted] shadow-sm transition-colors hover:border-primary-600 hover:text-[--color-text]"
       aria-label="Toggle dark mode"
       title="Toggle dark mode"
     >
-      {theme === "light" ? "🌙" : "☀️"}
+      <span>{theme === "light" ? "🌙" : "☀️"}</span>
+      <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
     </button>
   );
 }
