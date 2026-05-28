@@ -29,7 +29,7 @@ export default function PlannerPage() {
           <Link
             key={trip.id}
             href={`/planner/${trip.id}`}
-            className="rounded-xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm"
+            className="block rounded-xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm"
           >
             <h2 className="font-semibold text-[--color-text]">{trip.title}</h2>
             <p className="mt-1 text-sm text-[--color-text-muted]">
