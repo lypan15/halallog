@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppNav } from "@/components/layout/app-nav";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Header } from "@/components/layout/header";
 
 const FEATURES = [
   {
@@ -28,15 +28,7 @@ const FEATURES = [
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[--color-background]">
-      <header className="sticky top-0 z-40 border-b border-[--color-border]/70 bg-[--color-background]/90 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl">🌙</span>
-            <span className="text-lg font-semibold tracking-tight text-primary-700">HalalLog</span>
-          </Link>
-          <ThemeToggle />
-        </div>
-      </header>
+      <Header />
 
       {/* Hero */}
       <section className="px-4 pb-6 pt-10 text-center sm:pt-12">

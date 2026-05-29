@@ -193,20 +193,3 @@ export function countTripDays(startDate: string, endDate: string): string {
   const diff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   return `${Math.max(diff, 1)} days`;
 }
-
-export function buildDayTabs(startDate: string, endDate: string): string[] {
-  const start = new Date(startDate + "T00:00:00");
-  const end = new Date(endDate + "T00:00:00");
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return ["Day1 8/16", "Day2 8/17", "Day3 8/18"];
-  }
-  const result: string[] = [];
-  let day = new Date(start);
-  let idx = 1;
-  while (day <= end && idx <= 30) {
-    result.push(`Day${idx} ${day.getMonth() + 1}/${day.getDate()}`);
-    day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
-    idx += 1;
-  }
-  return result;
-}

@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugifyTripId, upsertTrip } from "@/lib/trips-storage";
+import { formatDate, formatDateLabel } from "@/lib/date-utils";
+import { Calendar, SHORT_MONTHS } from "@/components/Calendar";
 
-const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COMPANIONS = ["Solo", "Friends", "Couple", "Spouse", "Family"];
 const STYLES = ["Activities", "Food Tour", "Relaxation", "Sightseeing", "Shopping"];
 
@@ -18,15 +17,8 @@ const POPULAR_CITIES = [
   { name: "Dubai", image: "🏜️" },
 ];
 
-const formatDate = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-const formatDateLabel = (date: Date) =>
-  `${SHORT_MONTHS[date.getMonth()]} ${date.getDate()}`;
-
 export default function NewTripPage() {
   const router = useRouter();
-  const now = new Date();
 
   const [step, setStep] = useState(1);
   const [destination, setDestination] = useState("");
@@ -37,97 +29,11 @@ export default function NewTripPage() {
   const [tripName, setTripName] = useState("");
   const [description, setDescription] = useState("");
 
-  // Calendar month navigation
-  const [calendarMonth, setCalendarMonth] = useState({ year: now.getFullYear(), month: now.getMonth() });
-  const [slideY, setSlideY] = useState(0);
-  const [withTransition, setWithTransition] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const touchStartY = useRef(0);
-
-  const calendarDays = useMemo(() => {
-    const { year, month } = calendarMonth;
-    const firstDate = new Date(year, month, 1);
-    const lastDate = new Date(year, month + 1, 0);
-    const leadingEmpty = firstDate.getDay();
-    const totalDays = lastDate.getDate();
-    const cells: Array<Date | null> = [];
-    for (let i = 0; i < leadingEmpty; i += 1) cells.push(null);
-    for (let day = 1; day <= totalDays; day += 1) cells.push(new Date(year, month, day));
-    return cells;
-  }, [calendarMonth]);
-
-  const updateRange = (date: Date) => {
-    if (!rangeStart || (rangeStart && rangeEnd)) {
-      setRangeStart(date);
-      setRangeEnd(null);
-      return;
-    }
-    if (date < rangeStart) {
-      setRangeEnd(rangeStart);
-      setRangeStart(date);
-      return;
-    }
-    setRangeEnd(date);
-  };
-
-  const isEndpoint = (date: Date) =>
-    (rangeStart !== null && date.getTime() === rangeStart.getTime()) ||
-    (rangeEnd !== null && date.getTime() === rangeEnd.getTime());
-
-  const isInRangeMiddle = (date: Date) => {
-    if (!rangeStart || !rangeEnd) return false;
-    const t = date.getTime();
-    return t > rangeStart.getTime() && t < rangeEnd.getTime();
-  };
-
-  const navigate = (direction: "next" | "prev") => {
-    if (isAnimating) return;
-    if (direction === "prev") {
-      const n = new Date();
-      if (calendarMonth.year === n.getFullYear() && calendarMonth.month === n.getMonth()) return;
-    }
-    setIsAnimating(true);
-    setWithTransition(true);
-    setSlideY(direction === "next" ? -100 : 100);
-
-    setTimeout(() => {
-      setWithTransition(false);
-      setSlideY(direction === "next" ? 100 : -100);
-      setCalendarMonth((prev) => {
-        if (direction === "next") {
-          return prev.month === 11 ? { year: prev.year + 1, month: 0 } : { year: prev.year, month: prev.month + 1 };
-        }
-        return prev.month === 0 ? { year: prev.year - 1, month: 11 } : { year: prev.year, month: prev.month - 1 };
-      });
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setWithTransition(true);
-          setSlideY(0);
-          setTimeout(() => setIsAnimating(false), 300);
-        });
-      });
-    }, 300);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const delta = touchStartY.current - e.changedTouches[0].clientY;
-    if (Math.abs(delta) < 30) return;
-    navigate(delta > 0 ? "next" : "prev");
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    navigate(e.deltaY > 0 ? "next" : "prev");
-  };
-
   const selectedLabel = !rangeStart
     ? "Select your travel dates"
     : !rangeEnd
-    ? `${formatDateLabel(rangeStart)} – ?`
-    : `${formatDateLabel(rangeStart)} – ${formatDateLabel(rangeEnd)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
+    ? `${formatDateLabel(rangeStart, SHORT_MONTHS)} – ?`
+    : `${formatDateLabel(rangeStart, SHORT_MONTHS)} – ${formatDateLabel(rangeEnd, SHORT_MONTHS)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
 
   const toggleStyle = (style: string) => {
     setSelectedStyles((prev) =>
@@ -195,65 +101,12 @@ export default function NewTripPage() {
       {step === 2 && (
         <section className="space-y-3 rounded-xl border border-[--color-border] bg-[--color-surface] p-4">
           <h2 className="font-medium text-[--color-text]">Step 2: Select Dates</h2>
-
-          {/* Month / year header */}
-          <p className="text-center text-sm font-semibold text-[--color-text]">
-            {MONTHS[calendarMonth.month]} {calendarMonth.year}
-          </p>
-
-          {/* Week day labels */}
-          <div className="grid grid-cols-7 text-center text-xs text-[--color-text-muted]">
-            {WEEK_DAYS.map((day) => (
-              <span key={day} className="py-1">
-                {day}
-              </span>
-            ))}
-          </div>
-
-          {/* Animated calendar grid */}
-          <div
-            className="overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            onWheel={handleWheel}
-          >
-            <div
-              className="grid grid-cols-7"
-              style={{
-                transform: `translateY(${slideY}%)`,
-                transition: withTransition ? "transform 0.3s ease" : "none",
-              }}
-            >
-              {calendarDays.map((date, index) =>
-                date ? (
-                  <div
-                    key={date.toISOString()}
-                    className="flex items-center justify-center py-1"
-                    style={{
-                      backgroundColor: isInRangeMiddle(date) ? "rgba(45, 106, 79, 0.15)" : undefined,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => updateRange(date)}
-                      className={[
-                        "flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors",
-                        isEndpoint(date)
-                          ? "bg-[#2d6a4f] text-white"
-                          : "text-[--color-text] hover:bg-[--color-border]",
-                      ].join(" ")}
-                    >
-                      {date.getDate()}
-                    </button>
-                  </div>
-                ) : (
-                  <span key={`empty-${index}`} />
-                )
-              )}
-            </div>
-          </div>
-
-          {/* Selected date label */}
+          <Calendar
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onRangeChange={(start, end) => { setRangeStart(start); setRangeEnd(end); }}
+            disablePastMonths
+          />
           <p className="rounded-lg bg-[--color-background] px-3 py-2 text-sm text-[--color-text-muted]">
             {selectedLabel}
           </p>

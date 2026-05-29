@@ -31,14 +31,19 @@ import {
   type FlightItem,
   type StayItem,
   type TransportItem,
+  type TripBudgetItem,
+  type TripChecklistItem,
+  type TripPlace,
   type TripRecord,
 } from "@/lib/trips-storage";
+import { formatDate, formatDateLabel as fmtDateLabel } from "@/lib/date-utils";
+import { Calendar, SHORT_MONTHS } from "@/components/Calendar";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type TripTab = "summary" | "essential" | "itinerary" | "budget" | "checklist";
-type BudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string; currencyCode?: string };
-type PlaceItem = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; noteBody?: string; type?: "note" };
-type ChecklistItem = { id: string; text: string; done: boolean };
+type BudgetItem = TripBudgetItem;
+type PlaceItem = TripPlace;
+type ChecklistItem = TripChecklistItem;
 
 // ── Constants ──────────────────────────────────────────────────────────
 const TRIP_TABS: Array<{ id: TripTab; label: string }> = [
@@ -139,15 +144,8 @@ const TRANSPORT_ICON_MAP: Record<string, string> = {
   Train: "🚂", Car: "🚗", Bus: "🚌", Ferry: "⛴️", Cruise: "🚢", Taxi: "🚕",
 };
 
-const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // ── Helpers ────────────────────────────────────────────────────────────
-function fmtDate(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 function fmtDayTab(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -1100,7 +1098,6 @@ function TripEditPopup({
   onClose: () => void;
 }) {
   const [name, setName] = useState(initialName);
-  const now = new Date();
   const [rangeStart, setRangeStart] = useState<Date | null>(() => {
     const d = new Date(initialStart + "T00:00:00");
     return Number.isNaN(d.getTime()) ? null : d;
@@ -1109,60 +1106,16 @@ function TripEditPopup({
     const d = new Date(initialEnd + "T00:00:00");
     return Number.isNaN(d.getTime()) ? null : d;
   });
-  const [calMonth, setCalMonth] = useState(() => {
+
+  const initialMonth = (() => {
     const d = new Date(initialStart + "T00:00:00");
-    const base = Number.isNaN(d.getTime()) ? now : d;
+    const base = Number.isNaN(d.getTime()) ? new Date() : d;
     return { year: base.getFullYear(), month: base.getMonth() };
-  });
-  const [slideY, setSlideY] = useState(0);
-  const [withTrans, setWithTrans] = useState(true);
-  const [animating, setAnimating] = useState(false);
-  const touchY = useRef(0);
+  })();
 
-  const calDays = useMemo(() => {
-    const { year, month } = calMonth;
-    const first = new Date(year, month, 1).getDay();
-    const last = new Date(year, month + 1, 0).getDate();
-    const cells: Array<Date | null> = [];
-    for (let i = 0; i < first; i++) cells.push(null);
-    for (let d = 1; d <= last; d++) cells.push(new Date(year, month, d));
-    return cells;
-  }, [calMonth]);
-
-  const updateRange = (date: Date) => {
-    if (!rangeStart || (rangeStart && rangeEnd)) { setRangeStart(date); setRangeEnd(null); return; }
-    if (date < rangeStart) { setRangeEnd(rangeStart); setRangeStart(date); return; }
-    setRangeEnd(date);
-  };
-
-  const isEndpoint = (d: Date) =>
-    (rangeStart?.getTime() === d.getTime()) || (rangeEnd?.getTime() === d.getTime());
-  const isMiddle = (d: Date) => {
-    if (!rangeStart || !rangeEnd) return false;
-    const t = d.getTime();
-    return t > rangeStart.getTime() && t < rangeEnd.getTime();
-  };
-
-  const navigate = (dir: "next" | "prev") => {
-    if (animating) return;
-    setAnimating(true); setWithTrans(true); setSlideY(dir === "next" ? -100 : 100);
-    setTimeout(() => {
-      setWithTrans(false); setSlideY(dir === "next" ? 100 : -100);
-      setCalMonth((p) => dir === "next"
-        ? (p.month === 11 ? { year: p.year + 1, month: 0 } : { year: p.year, month: p.month + 1 })
-        : (p.month === 0 ? { year: p.year - 1, month: 11 } : { year: p.year, month: p.month - 1 })
-      );
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        setWithTrans(true); setSlideY(0);
-        setTimeout(() => setAnimating(false), 300);
-      }));
-    }, 300);
-  };
-
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const fmtLabel = (d: Date) => `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
-  const dateLabel = !rangeStart ? "Select dates" : !rangeEnd ? `${fmtLabel(rangeStart)} – ?`
-    : `${fmtLabel(rangeStart)} – ${fmtLabel(rangeEnd)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
+  const dateLabel = !rangeStart ? "Select dates"
+    : !rangeEnd ? `${fmtDateLabel(rangeStart, SHORT_MONTHS)} – ?`
+    : `${fmtDateLabel(rangeStart, SHORT_MONTHS)} – ${fmtDateLabel(rangeEnd, SHORT_MONTHS)} (${Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000) + 1} days)`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -1180,34 +1133,12 @@ function TripEditPopup({
         </div>
 
         {/* Calendar */}
-        <p className="mb-2 text-center text-xs font-semibold text-[--color-text]">
-          {MONTHS[calMonth.month]} {calMonth.year}
-        </p>
-        <div className="grid grid-cols-7 text-center text-xs text-[--color-text-muted]">
-          {WEEK_DAYS.map((d) => <span key={d} className="py-0.5">{d}</span>)}
-        </div>
-        <div
-          className="overflow-hidden"
-          onTouchStart={(e) => { touchY.current = e.touches[0].clientY; }}
-          onTouchEnd={(e) => { const delta = touchY.current - e.changedTouches[0].clientY; if (Math.abs(delta) >= 30) navigate(delta > 0 ? "next" : "prev"); }}
-          onWheel={(e) => navigate(e.deltaY > 0 ? "next" : "prev")}
-        >
-          <div className="grid grid-cols-7" style={{ transform: `translateY(${slideY}%)`, transition: withTrans ? "transform 0.3s ease" : "none" }}>
-            {calDays.map((date, i) =>
-              date ? (
-                <div key={date.toISOString()} className="flex items-center justify-center py-0.5"
-                  style={{ backgroundColor: isMiddle(date) ? "rgba(45,106,79,0.15)" : undefined }}
-                >
-                  <button type="button" onClick={() => updateRange(date)}
-                    className={["flex h-7 w-7 items-center justify-center rounded-full text-xs transition-colors",
-                      isEndpoint(date) ? "bg-[#2d6a4f] text-white" : "text-[--color-text] hover:bg-[--color-border]",
-                    ].join(" ")}
-                  >{date.getDate()}</button>
-                </div>
-              ) : <span key={`e-${i}`} />
-            )}
-          </div>
-        </div>
+        <Calendar
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          onRangeChange={(start, end) => { setRangeStart(start); setRangeEnd(end); }}
+          initialMonth={initialMonth}
+        />
 
         <p className="mt-2 rounded-lg bg-[--color-background] px-3 py-1.5 text-center text-xs text-[--color-text-muted]">{dateLabel}</p>
 
@@ -1215,7 +1146,7 @@ function TripEditPopup({
           <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm text-[--color-text-muted]">Cancel</button>
           <button
             type="button"
-            onClick={() => rangeStart && onConfirm(name, fmt(rangeStart), rangeEnd ? fmt(rangeEnd) : fmt(rangeStart))}
+            onClick={() => rangeStart && onConfirm(name, formatDate(rangeStart), rangeEnd ? formatDate(rangeEnd) : formatDate(rangeStart))}
             disabled={!rangeStart}
             className="flex-1 rounded-lg bg-[#2d6a4f] py-2 text-sm font-medium text-white disabled:opacity-50"
           >
