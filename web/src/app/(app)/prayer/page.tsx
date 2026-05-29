@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { PRAYER_META, PRAYER_NAMES, PRAYER_TIMES, type PrayerName } from "@/constants/prayerTimes";
+import {
+  PRAYER_META,
+  PRAYER_NAMES,
+  PRAYER_TIMES,
+  type PrayerName,
+} from "@/constants/prayerTimes";
 import { usePrayerStore } from "@/lib/prayer-store";
 
 const PRESET_CHIPS = [5, 10, 15, 30] as const;
@@ -120,15 +125,8 @@ export default function PrayerPage() {
   const [customPopup, setCustomPopup] = useState<PrayerName | null>(null);
   const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const {
-    globalEnabled,
-    dailyEnabled,
-    prayers,
-    setGlobalEnabled,
-    setDailyEnabled,
-    setPrayerEnabled,
-    setPrayerMinutes,
-  } = usePrayerStore();
+  const { globalEnabled, prayers, setGlobalEnabled, setPrayerEnabled, setPrayerMinutes } =
+    usePrayerStore();
 
   // Hydrate store from localStorage
   useEffect(() => {
@@ -164,15 +162,12 @@ export default function PrayerPage() {
       if (notifyAt <= now) return;
 
       const id = setTimeout(() => {
-        new Notification(
-          `${PRAYER_META[name].icon} ${name} – ${PRAYER_TIMES[name]}`,
-          {
-            body: `${name} prayer in ${setting.minutesBefore} min`,
-            icon: "/favicon.png",
-            tag: `prayer-${name}`,
-            silent: true,
-          }
-        );
+        new Notification(`${PRAYER_META[name].icon} ${name} – ${PRAYER_TIMES[name]}`, {
+          body: `${name} prayer in ${setting.minutesBefore} min`,
+          icon: "/favicon.png",
+          tag: `prayer-${name}`,
+          silent: true,
+        });
       }, notifyAt.getTime() - now.getTime());
 
       timeoutIds.current.push(id);
@@ -184,38 +179,15 @@ export default function PrayerPage() {
     return () => timeoutIds.current.forEach(clearTimeout);
   }, [mounted, globalEnabled, prayers, scheduleToday]);
 
-  // Daily re-schedule: set a timeout that fires at midnight
-  useEffect(() => {
-    if (!mounted || !dailyEnabled || !globalEnabled) return;
-    const now = new Date();
-    const midnight = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-      0,
-      0,
-      5
-    );
-    const id = setTimeout(() => scheduleToday(), midnight.getTime() - now.getTime());
-    return () => clearTimeout(id);
-  }, [mounted, dailyEnabled, globalEnabled, scheduleToday]);
-
-  const handleGlobalToggle = async () => {
-    if (typeof Notification === "undefined") return;
-
-    if (!globalEnabled) {
-      if (Notification.permission === "default") {
-        const result = await Notification.requestPermission();
-        setPermission(result);
-        if (result === "granted") setGlobalEnabled(true);
-        return;
-      }
-      if (Notification.permission === "denied") {
-        setPermission("denied");
-        return;
-      }
-    }
+  // Master toggle: always switches state; permission is handled via a separate banner
+  const handleGlobalToggle = () => {
     setGlobalEnabled(!globalEnabled);
+  };
+
+  const requestPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setPermission(result);
   };
 
   if (!mounted) {
@@ -257,46 +229,48 @@ export default function PrayerPage() {
       <section className="space-y-3 rounded-2xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm">
         <h2 className="font-semibold text-[--color-text]">🔔 Notification Settings</h2>
 
-        {/* Permission denied banner */}
-        {permission === "denied" && (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-            브라우저에서 알림이 차단됐습니다. 브라우저 설정에서 허용해 주세요.
-          </div>
-        )}
-
-        {/* All notifications */}
+        {/* Master toggle */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-[--color-text]">전체 알림</p>
             <p className="text-xs text-[--color-text-muted]">
-              {permission === "granted"
-                ? "Permission granted ✓"
-                : permission === "denied"
-                ? "알림 차단됨"
-                : "탭하면 권한 요청"}
+              끄면 개별 설정이 유지된 채로 비활성화됩니다
             </p>
           </div>
-          <Toggle
-            value={globalEnabled}
-            onChange={handleGlobalToggle}
-            disabled={permission === "denied"}
-          />
+          <Toggle value={globalEnabled} onChange={handleGlobalToggle} />
         </div>
 
-        {/* Daily repeat */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-[--color-text]">매일 알림</p>
-            <p className="text-xs text-[--color-text-muted]">
-              탭을 열어 두면 매일 자동 재설정
-            </p>
+        {/* Permission banner — only when master is ON but permission not granted */}
+        {globalEnabled && permission !== "granted" && (
+          <div
+            className={[
+              "rounded-lg px-3 py-2.5 text-xs",
+              permission === "denied"
+                ? "bg-red-50 text-red-600"
+                : "bg-[#fef9f0] text-[#c4704a]",
+            ].join(" ")}
+          >
+            {permission === "denied" ? (
+              "브라우저에서 알림이 차단됐습니다. 브라우저 설정에서 직접 허용해 주세요."
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span>알림을 받으려면 권한이 필요합니다</span>
+                <button
+                  type="button"
+                  onClick={requestPermission}
+                  className="shrink-0 rounded-full bg-[#c4704a] px-3 py-1 font-medium text-white transition-colors hover:bg-[#b35f3a]"
+                >
+                  허용
+                </button>
+              </div>
+            )}
           </div>
-          <Toggle
-            value={dailyEnabled}
-            onChange={() => setDailyEnabled(!dailyEnabled)}
-            disabled={!globalEnabled}
-          />
-        </div>
+        )}
+
+        {/* Granted confirmation */}
+        {globalEnabled && permission === "granted" && (
+          <p className="text-xs text-[#2d6a4f]">✓ 브라우저 알림 권한이 허용됐습니다</p>
+        )}
       </section>
 
       {/* Prayer times + per-prayer notification settings */}
