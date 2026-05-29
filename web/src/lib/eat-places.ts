@@ -17,7 +17,7 @@ export const EAT_PLACES: EatPlace[] = [
     name: "Salam Bistro",
     distance: "450m",
     category: "Halal",
-    area: "Myeongdong",
+    area: "",
     rating: 4.8,
     description: "Certified halal Korean fusion with prayer room nearby.",
     dietTags: ["Halal"],
