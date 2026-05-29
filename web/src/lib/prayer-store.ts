@@ -9,15 +9,13 @@ export type PrayerNotifSetting = {
 
 type PrayerStore = {
   globalEnabled: boolean;
-  dailyEnabled: boolean;
   prayers: Record<PrayerName, PrayerNotifSetting>;
   setGlobalEnabled: (v: boolean) => void;
-  setDailyEnabled: (v: boolean) => void;
   setPrayerEnabled: (name: PrayerName, v: boolean) => void;
   setPrayerMinutes: (name: PrayerName, minutes: number) => void;
 };
 
-const defaultPrayers = (): Record<PrayerName, PrayerNotifSetting> =>
+export const DEFAULT_PRAYER_SETTINGS: Record<PrayerName, PrayerNotifSetting> =
   Object.fromEntries(
     PRAYER_NAMES.map((n) => [n, { enabled: true, minutesBefore: 10 }])
   ) as Record<PrayerName, PrayerNotifSetting>;
@@ -26,18 +24,13 @@ export const usePrayerStore = create<PrayerStore>()(
   persist(
     (set) => ({
       globalEnabled: false,
-      dailyEnabled: true,
-      prayers: defaultPrayers(),
+      prayers: { ...DEFAULT_PRAYER_SETTINGS },
 
       setGlobalEnabled: (v) => set({ globalEnabled: v }),
-      setDailyEnabled: (v) => set({ dailyEnabled: v }),
 
       setPrayerEnabled: (name, v) =>
         set((s) => ({
-          prayers: {
-            ...s.prayers,
-            [name]: { ...s.prayers[name], enabled: v },
-          },
+          prayers: { ...s.prayers, [name]: { ...s.prayers[name], enabled: v } },
         })),
 
       setPrayerMinutes: (name, minutes) =>
@@ -48,9 +41,6 @@ export const usePrayerStore = create<PrayerStore>()(
           },
         })),
     }),
-    {
-      name: "halallog-prayer-settings",
-      skipHydration: true,
-    }
+    { name: "halallog-prayer-v2" }
   )
 );

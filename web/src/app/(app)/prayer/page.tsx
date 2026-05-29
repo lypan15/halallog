@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   PRAYER_META,
@@ -8,107 +8,188 @@ import {
   PRAYER_TIMES,
   type PrayerName,
 } from "@/constants/prayerTimes";
-import { usePrayerStore } from "@/lib/prayer-store";
+import {
+  DEFAULT_PRAYER_SETTINGS,
+  usePrayerStore,
+  type PrayerNotifSetting,
+} from "@/lib/prayer-store";
 
-const PRESET_CHIPS = [5, 10, 15, 30] as const;
+const PRESET_MINS = [5, 10, 15, 30] as const;
 
-// ── Toggle ──────────────────────────────────────────────────────────────
+// ── Toggle switch ────────────────────────────────────────────────────────
 function Toggle({
-  value,
-  onChange,
+  on,
+  onToggle,
   disabled = false,
 }: {
-  value: boolean;
-  onChange: () => void;
+  on: boolean;
+  onToggle: () => void;
   disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={value}
-      onClick={onChange}
+      aria-checked={on}
       disabled={disabled}
-      className={[
-        "relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-        value && !disabled ? "bg-[#2d6a4f]" : "bg-[--color-border]",
-        disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
-      ].join(" ")}
+      onClick={onToggle}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        width: 44,
+        height: 24,
+        borderRadius: 999,
+        backgroundColor: on && !disabled ? "#2d6a4f" : "#d1d5db",
+        border: "none",
+        padding: 2,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.4 : 1,
+        flexShrink: 0,
+        transition: "background-color 0.2s",
+      }}
     >
       <span
-        className={[
-          "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-          value ? "translate-x-5" : "translate-x-0",
-        ].join(" ")}
+        style={{
+          display: "block",
+          width: 20,
+          height: 20,
+          borderRadius: "50%",
+          backgroundColor: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          transform: on ? "translateX(20px)" : "translateX(0px)",
+          transition: "transform 0.2s",
+        }}
       />
     </button>
   );
 }
 
-// ── Custom Minutes Popup ────────────────────────────────────────────────
-function CustomMinutesPopup({
+// ── Custom minutes popup ─────────────────────────────────────────────────
+function CustomPopup({
   prayerName,
-  initialValue,
+  current,
   onConfirm,
   onClose,
 }: {
   prayerName: PrayerName;
-  initialValue: number;
-  onConfirm: (minutes: number) => void;
+  current: number;
+  onConfirm: (v: number) => void;
   onClose: () => void;
 }) {
-  const [raw, setRaw] = useState(String(initialValue));
-  const num = parseInt(raw, 10);
-  const valid = !isNaN(num) && num >= 1 && num <= 60;
+  const [raw, setRaw] = useState(String(current));
+  const parsed = parseInt(raw, 10);
+  const valid = !isNaN(parsed) && parsed >= 1 && parsed <= 60;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.4)",
+        padding: 16,
+      }}
     >
       <div
-        className="w-72 rounded-xl bg-[--color-surface] p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 280,
+          borderRadius: 16,
+          backgroundColor: "var(--color-surface)",
+          padding: 24,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+        }}
       >
-        <p className="mb-1 text-center text-sm font-semibold text-[--color-text]">
+        <p
+          style={{
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: 15,
+            marginBottom: 4,
+            color: "var(--color-text)",
+          }}
+        >
           직접 입력
         </p>
-        <p className="mb-4 text-center text-xs text-[--color-text-muted]">
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 12,
+            color: "var(--color-text-muted)",
+            marginBottom: 20,
+          }}
+        >
           {PRAYER_META[prayerName].icon} {prayerName} 알림
         </p>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
             type="number"
             value={raw}
-            onChange={(e) => setRaw(e.target.value)}
             min={1}
             max={60}
             autoFocus
-            className="w-full rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2.5 text-center text-xl font-bold text-[--color-text] outline-none focus:border-[#2d6a4f]"
+            onChange={(e) => setRaw(e.target.value)}
+            style={{
+              flex: 1,
+              border: `1px solid ${valid ? "#2d6a4f" : "var(--color-border)"}`,
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: 22,
+              fontWeight: 700,
+              textAlign: "center",
+              outline: "none",
+              backgroundColor: "var(--color-background)",
+              color: "var(--color-text)",
+            }}
           />
-          <span className="shrink-0 text-sm text-[--color-text-muted]">분 전</span>
+          <span style={{ fontSize: 13, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
+            분 전
+          </span>
         </div>
 
         {raw !== "" && !valid && (
-          <p className="mt-1.5 text-center text-xs text-[#c4704a]">
-            1–60 범위로 입력해주세요
+          <p style={{ fontSize: 11, color: "#c4704a", textAlign: "center", marginTop: 6 }}>
+            1–60 사이 숫자를 입력해주세요
           </p>
         )}
 
-        <div className="mt-4 flex gap-2">
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm text-[--color-text-muted] transition-colors hover:bg-[--color-background]"
+            style={{
+              flex: 1,
+              border: "1px solid var(--color-border)",
+              borderRadius: 10,
+              padding: "10px 0",
+              fontSize: 14,
+              color: "var(--color-text-muted)",
+              background: "transparent",
+              cursor: "pointer",
+            }}
           >
             취소
           </button>
           <button
             type="button"
-            onClick={() => valid && onConfirm(num)}
+            onClick={() => valid && onConfirm(parsed)}
             disabled={!valid}
-            className="flex-1 rounded-lg bg-[#2d6a4f] py-2 text-sm font-medium text-white transition-colors hover:bg-[#245a42] disabled:opacity-50"
+            style={{
+              flex: 1,
+              border: "none",
+              borderRadius: 10,
+              padding: "10px 0",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#fff",
+              backgroundColor: valid ? "#2d6a4f" : "#9ca3af",
+              cursor: valid ? "pointer" : "not-allowed",
+            }}
           >
             확인
           </button>
@@ -118,96 +199,78 @@ function CustomMinutesPopup({
   );
 }
 
-// ── Main Page ───────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────
 export default function PrayerPage() {
+  // Prevent SSR/hydration mismatch: render nothing store-dependent until client mount
   const [mounted, setMounted] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [customPopup, setCustomPopup] = useState<PrayerName | null>(null);
-  const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [customTarget, setCustomTarget] = useState<PrayerName | null>(null);
+  const notifTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const { globalEnabled, prayers, setGlobalEnabled, setPrayerEnabled, setPrayerMinutes } =
-    usePrayerStore();
+  // Always call the hook unconditionally
+  const store = usePrayerStore();
 
-  // Hydrate store from localStorage
+  // After mount, the persisted store values are available
+  const globalEnabled = mounted ? store.globalEnabled : false;
+  const prayers: Record<PrayerName, PrayerNotifSetting> = mounted
+    ? store.prayers ?? DEFAULT_PRAYER_SETTINGS
+    : DEFAULT_PRAYER_SETTINGS;
+
   useEffect(() => {
-    usePrayerStore.persist.rehydrate();
     setMounted(true);
-    if (typeof Notification !== "undefined") {
-      setPermission(Notification.permission);
-    }
   }, []);
 
-  // Schedule browser notifications for today's remaining prayers
-  const scheduleToday = useCallback(() => {
-    timeoutIds.current.forEach(clearTimeout);
-    timeoutIds.current = [];
+  // Schedule browser notifications whenever relevant state changes
+  useEffect(() => {
+    if (!mounted) return;
+    notifTimers.current.forEach(clearTimeout);
+    notifTimers.current = [];
 
-    const { globalEnabled: ge, prayers: pr } = usePrayerStore.getState();
-    if (!ge || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (
+      !store.globalEnabled ||
+      typeof Notification === "undefined" ||
+      Notification.permission !== "granted"
+    )
+      return;
 
     PRAYER_NAMES.forEach((name) => {
-      const setting = pr[name];
-      if (!setting.enabled) return;
+      const s = store.prayers?.[name];
+      if (!s?.enabled) return;
 
       const [h, m] = PRAYER_TIMES[name].split(":").map(Number);
       const now = new Date();
-      const notifyAt = new Date(
+      const fireAt = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate(),
         h,
-        m - setting.minutesBefore,
+        m - s.minutesBefore,
         0
       );
-      if (notifyAt <= now) return;
+      if (fireAt <= now) return;
 
       const id = setTimeout(() => {
         new Notification(`${PRAYER_META[name].icon} ${name} – ${PRAYER_TIMES[name]}`, {
-          body: `${name} prayer in ${setting.minutesBefore} min`,
+          body: `${name} prayer in ${s.minutesBefore} min`,
           icon: "/favicon.png",
           tag: `prayer-${name}`,
           silent: true,
         });
-      }, notifyAt.getTime() - now.getTime());
+      }, fireAt.getTime() - now.getTime());
 
-      timeoutIds.current.push(id);
+      notifTimers.current.push(id);
     });
-  }, []);
 
-  useEffect(() => {
-    if (mounted) scheduleToday();
-    return () => timeoutIds.current.forEach(clearTimeout);
-  }, [mounted, globalEnabled, prayers, scheduleToday]);
-
-  // Master toggle: always switches state; permission is handled via a separate banner
-  const handleGlobalToggle = () => {
-    setGlobalEnabled(!globalEnabled);
-  };
-
-  const requestPermission = async () => {
-    if (typeof Notification === "undefined") return;
-    const result = await Notification.requestPermission();
-    setPermission(result);
-  };
-
-  if (!mounted) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-32 rounded-lg bg-[--color-surface]" />
-        <div className="h-28 rounded-xl bg-[--color-surface]" />
-        <div className="h-96 rounded-xl bg-[--color-surface]" />
-      </div>
-    );
-  }
+    return () => notifTimers.current.forEach(clearTimeout);
+  }, [mounted, store.globalEnabled, store.prayers]);
 
   return (
     <div className="space-y-4 pb-4">
-      {/* Header */}
+      {/* ── Header ── */}
       <header>
         <h1 className="text-2xl font-bold text-[--color-text]">Prayer</h1>
       </header>
 
-      {/* Quick links */}
+      {/* ── Quick links ── */}
       <section className="grid grid-cols-3 gap-2">
         {[
           { href: "/qibla", label: "Qibla", icon: "🧭" },
@@ -225,122 +288,99 @@ export default function PrayerPage() {
         ))}
       </section>
 
-      {/* Global notification controls */}
-      <section className="space-y-3 rounded-2xl border border-[--color-border] bg-[--color-surface] p-4 shadow-sm">
-        <h2 className="font-semibold text-[--color-text]">🔔 Notification Settings</h2>
-
-        {/* Master toggle */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-[--color-text]">전체 알림</p>
-            <p className="text-xs text-[--color-text-muted]">
-              끄면 개별 설정이 유지된 채로 비활성화됩니다
-            </p>
-          </div>
-          <Toggle value={globalEnabled} onChange={handleGlobalToggle} />
-        </div>
-
-        {/* Permission banner — only when master is ON but permission not granted */}
-        {globalEnabled && permission !== "granted" && (
-          <div
-            className={[
-              "rounded-lg px-3 py-2.5 text-xs",
-              permission === "denied"
-                ? "bg-red-50 text-red-600"
-                : "bg-[#fef9f0] text-[#c4704a]",
-            ].join(" ")}
-          >
-            {permission === "denied" ? (
-              "브라우저에서 알림이 차단됐습니다. 브라우저 설정에서 직접 허용해 주세요."
-            ) : (
-              <div className="flex items-center justify-between gap-2">
-                <span>알림을 받으려면 권한이 필요합니다</span>
-                <button
-                  type="button"
-                  onClick={requestPermission}
-                  className="shrink-0 rounded-full bg-[#c4704a] px-3 py-1 font-medium text-white transition-colors hover:bg-[#b35f3a]"
-                >
-                  허용
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Granted confirmation */}
-        {globalEnabled && permission === "granted" && (
-          <p className="text-xs text-[#2d6a4f]">✓ 브라우저 알림 권한이 허용됐습니다</p>
-        )}
-      </section>
-
-      {/* Prayer times + per-prayer notification settings */}
+      {/* ── Prayer times + notification settings ── */}
       <section className="overflow-hidden rounded-2xl border border-[--color-border] bg-[--color-surface] shadow-sm">
+        {/* Section header with master toggle */}
         <div className="border-b border-[--color-border] px-4 py-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-[--color-text]">Today&apos;s Prayer Times</h2>
-            <span className="rounded-full bg-[--color-background] px-2 py-0.5 text-[10px] text-[--color-text-muted]">
-              Mecca (test)
-            </span>
+            <div>
+              <p className="font-semibold text-[--color-text]">Today&apos;s Prayer Times</p>
+              <p className="text-xs text-[--color-text-muted]">Mecca · test data</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[--color-text-muted]">전체 알림</span>
+              <Toggle
+                on={globalEnabled}
+                onToggle={() => store.setGlobalEnabled(!globalEnabled)}
+              />
+            </div>
           </div>
         </div>
 
+        {/* Individual prayer rows */}
         <div className="divide-y divide-[--color-border]">
           {PRAYER_NAMES.map((name) => {
             const meta = PRAYER_META[name];
-            const setting = prayers[name];
-            const rowActive = globalEnabled && setting.enabled;
-            const isCustom = !(PRESET_CHIPS as readonly number[]).includes(setting.minutesBefore);
+            const setting = prayers[name] ?? { enabled: true, minutesBefore: 10 };
+            const rowOn = globalEnabled && setting.enabled;
+            const isCustomMin = !(PRESET_MINS as readonly number[]).includes(
+              setting.minutesBefore
+            );
 
             return (
-              <div key={name} className="space-y-2.5 px-4 py-3">
-                {/* Prayer row */}
+              <div key={name} className="px-4 py-3">
+                {/* Prayer name + time + toggle */}
                 <div className="flex items-center gap-3">
-                  <span className="w-6 shrink-0 text-center text-lg">{meta.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[--color-text]">{name}</p>
+                  <span className="w-7 shrink-0 text-center text-xl">{meta.icon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[--color-text]">{name}</p>
                     <p className="text-xs text-[--color-text-muted]">{meta.arabic}</p>
                   </div>
-                  <span className="shrink-0 font-mono text-sm font-medium text-[--color-text]">
+                  <span className="shrink-0 font-mono text-sm font-semibold text-[--color-text]">
                     {PRAYER_TIMES[name]}
                   </span>
                   <Toggle
-                    value={setting.enabled}
-                    onChange={() => setPrayerEnabled(name, !setting.enabled)}
+                    on={setting.enabled}
+                    onToggle={() => store.setPrayerEnabled(name, !setting.enabled)}
                     disabled={!globalEnabled}
                   />
                 </div>
 
-                {/* Notification chips — visible only when this prayer is active */}
-                {rowActive && (
-                  <div className="flex flex-wrap gap-1.5 pl-9">
-                    {PRESET_CHIPS.map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        onClick={() => setPrayerMinutes(name, min)}
-                        className={[
-                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                          setting.minutesBefore === min
-                            ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
-                            : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f]",
-                        ].join(" ")}
-                      >
-                        {min}분
-                      </button>
-                    ))}
+                {/* Notification time chips — only when row is active */}
+                {rowOn && (
+                  <div
+                    className="mt-2.5 flex flex-wrap gap-1.5"
+                    style={{ paddingLeft: 36 }}
+                  >
+                    {PRESET_MINS.map((min) => {
+                      const active = setting.minutesBefore === min;
+                      return (
+                        <button
+                          key={min}
+                          type="button"
+                          onClick={() => store.setPrayerMinutes(name, min)}
+                          style={{
+                            border: `1px solid ${active ? "#2d6a4f" : "var(--color-border)"}`,
+                            backgroundColor: active ? "#2d6a4f" : "transparent",
+                            color: active ? "#fff" : "var(--color-text-muted)",
+                            borderRadius: 999,
+                            padding: "4px 12px",
+                            fontSize: 12,
+                            fontWeight: 500,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {min}분
+                        </button>
+                      );
+                    })}
 
-                    {/* Custom input chip */}
+                    {/* Custom chip */}
                     <button
                       type="button"
-                      onClick={() => setCustomPopup(name)}
-                      className={[
-                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                        isCustom
-                          ? "border-[#c4704a] bg-[#c4704a] text-white"
-                          : "border-[--color-border] text-[--color-text-muted] hover:border-[#c4704a] hover:text-[#c4704a]",
-                      ].join(" ")}
+                      onClick={() => setCustomTarget(name)}
+                      style={{
+                        border: `1px solid ${isCustomMin ? "#c4704a" : "var(--color-border)"}`,
+                        backgroundColor: isCustomMin ? "#c4704a" : "transparent",
+                        color: isCustomMin ? "#fff" : "var(--color-text-muted)",
+                        borderRadius: 999,
+                        padding: "4px 12px",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
                     >
-                      {isCustom ? `${setting.minutesBefore}분` : "직접 입력"}
+                      {isCustomMin ? `${setting.minutesBefore}분` : "Custom"}
                     </button>
                   </div>
                 )}
@@ -350,16 +390,16 @@ export default function PrayerPage() {
         </div>
       </section>
 
-      {/* Custom minutes popup */}
-      {customPopup && (
-        <CustomMinutesPopup
-          prayerName={customPopup}
-          initialValue={prayers[customPopup].minutesBefore}
-          onConfirm={(minutes) => {
-            setPrayerMinutes(customPopup, minutes);
-            setCustomPopup(null);
+      {/* ── Custom minutes popup ── */}
+      {customTarget && (
+        <CustomPopup
+          prayerName={customTarget}
+          current={prayers[customTarget]?.minutesBefore ?? 10}
+          onConfirm={(v) => {
+            store.setPrayerMinutes(customTarget, v);
+            setCustomTarget(null);
           }}
-          onClose={() => setCustomPopup(null)}
+          onClose={() => setCustomTarget(null)}
         />
       )}
     </div>
