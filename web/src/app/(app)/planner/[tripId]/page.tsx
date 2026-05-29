@@ -36,7 +36,7 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────
 type TripTab = "summary" | "essential" | "itinerary" | "budget" | "checklist";
-type BudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string };
+type BudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string; currencyCode?: string };
 type PlaceItem = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; noteBody?: string; type?: "note" };
 type ChecklistItem = { id: string; text: string; done: boolean };
 
@@ -78,6 +78,58 @@ const BUDGET_CATEGORY_MAP: Record<string, string[]> = {
   "📎 Others": [],
 };
 const BUDGET_PARENT_CATEGORIES = Object.keys(BUDGET_CATEGORY_MAP);
+
+const CURRENCIES: { code: string; symbol: string }[] = [
+  { code: "USD", symbol: "$" }, { code: "EUR", symbol: "€" }, { code: "GBP", symbol: "£" },
+  { code: "JPY", symbol: "¥" }, { code: "KRW", symbol: "₩" }, { code: "CNY", symbol: "¥" },
+  { code: "AED", symbol: "د.إ" }, { code: "SAR", symbol: "﷼" }, { code: "QAR", symbol: "QR" },
+  { code: "KWD", symbol: "KD" }, { code: "BHD", symbol: "BD" }, { code: "OMR", symbol: "OR" },
+  { code: "JOD", symbol: "JD" }, { code: "EGP", symbol: "E£" }, { code: "MAD", symbol: "MAD" },
+  { code: "DZD", symbol: "DA" }, { code: "TND", symbol: "DT" }, { code: "LYD", symbol: "LD" },
+  { code: "LBP", symbol: "L£" }, { code: "SYP", symbol: "S£" }, { code: "IQD", symbol: "IQD" },
+  { code: "IRR", symbol: "﷼" }, { code: "PKR", symbol: "₨" }, { code: "BDT", symbol: "৳" },
+  { code: "INR", symbol: "₹" }, { code: "LKR", symbol: "Rs" }, { code: "NPR", symbol: "Rs" },
+  { code: "MVR", symbol: "Rf" }, { code: "AFN", symbol: "Af" }, { code: "MYR", symbol: "RM" },
+  { code: "IDR", symbol: "Rp" }, { code: "SGD", symbol: "S$" }, { code: "THB", symbol: "฿" },
+  { code: "PHP", symbol: "₱" }, { code: "VND", symbol: "₫" }, { code: "TWD", symbol: "NT$" },
+  { code: "HKD", symbol: "HK$" }, { code: "MOP", symbol: "P" }, { code: "KHR", symbol: "CR" },
+  { code: "LAK", symbol: "₭" }, { code: "MMK", symbol: "K" }, { code: "BND", symbol: "B$" },
+  { code: "MNT", symbol: "₮" }, { code: "KZT", symbol: "₸" }, { code: "UZS", symbol: "лв" },
+  { code: "KGS", symbol: "лв" }, { code: "TJS", symbol: "SM" }, { code: "TMT", symbol: "T" },
+  { code: "AZN", symbol: "₼" }, { code: "GEL", symbol: "₾" }, { code: "AMD", symbol: "֏" },
+  { code: "TRY", symbol: "₺" }, { code: "ILS", symbol: "₪" }, { code: "AUD", symbol: "A$" },
+  { code: "NZD", symbol: "NZ$" }, { code: "FJD", symbol: "FJ$" }, { code: "PGK", symbol: "K" },
+  { code: "SBD", symbol: "SI$" }, { code: "VUV", symbol: "VT" }, { code: "WST", symbol: "T" },
+  { code: "CAD", symbol: "C$" }, { code: "MXN", symbol: "Mex$" }, { code: "BRL", symbol: "R$" },
+  { code: "ARS", symbol: "AR$" }, { code: "CLP", symbol: "CLP$" }, { code: "COP", symbol: "COL$" },
+  { code: "PEN", symbol: "S/" }, { code: "BOB", symbol: "Bs" }, { code: "PYG", symbol: "Gs" },
+  { code: "UYU", symbol: "UY$" }, { code: "VES", symbol: "Bs.S" }, { code: "GTQ", symbol: "Q" },
+  { code: "HNL", symbol: "L" }, { code: "NIO", symbol: "C$" }, { code: "CRC", symbol: "₡" },
+  { code: "DOP", symbol: "RD$" }, { code: "JMD", symbol: "J$" }, { code: "TTD", symbol: "TT$" },
+  { code: "BBD", symbol: "Bds$" }, { code: "BSD", symbol: "B$" }, { code: "HTG", symbol: "G" },
+  { code: "CHF", symbol: "Fr" }, { code: "SEK", symbol: "kr" }, { code: "NOK", symbol: "kr" },
+  { code: "DKK", symbol: "kr" }, { code: "ISK", symbol: "kr" }, { code: "CZK", symbol: "Kč" },
+  { code: "PLN", symbol: "zł" }, { code: "HUF", symbol: "Ft" }, { code: "RON", symbol: "lei" },
+  { code: "BGN", symbol: "лв" }, { code: "RSD", symbol: "din" }, { code: "HRK", symbol: "kn" },
+  { code: "BAM", symbol: "KM" }, { code: "ALL", symbol: "L" }, { code: "MKD", symbol: "ден" },
+  { code: "MDL", symbol: "L" }, { code: "UAH", symbol: "₴" }, { code: "BYN", symbol: "Br" },
+  { code: "RUB", symbol: "₽" }, { code: "ZAR", symbol: "R" }, { code: "NGN", symbol: "₦" },
+  { code: "GHS", symbol: "GH₵" }, { code: "KES", symbol: "KSh" }, { code: "TZS", symbol: "TSh" },
+  { code: "UGX", symbol: "USh" }, { code: "ETB", symbol: "Br" }, { code: "ZMW", symbol: "ZK" },
+  { code: "ZWL", symbol: "Z$" }, { code: "BWP", symbol: "P" }, { code: "NAD", symbol: "N$" },
+  { code: "MZN", symbol: "MT" }, { code: "AOA", symbol: "Kz" }, { code: "XOF", symbol: "CFA" },
+  { code: "XAF", symbol: "FCFA" }, { code: "XCD", symbol: "EC$" }, { code: "SCR", symbol: "SR" },
+  { code: "MUR", symbol: "Rs" }, { code: "MGA", symbol: "Ar" }, { code: "DZD", symbol: "DA" },
+  { code: "SDG", symbol: "SDG" }, { code: "SOS", symbol: "Sh" }, { code: "DJF", symbol: "Fdj" },
+  { code: "ERN", symbol: "Nfk" }, { code: "RWF", symbol: "RF" }, { code: "BIF", symbol: "Fr" },
+  { code: "CDF", symbol: "FC" }, { code: "GMD", symbol: "D" }, { code: "GNF", symbol: "Fr" },
+  { code: "SLL", symbol: "Le" }, { code: "LRD", symbol: "L$" }, { code: "CVE", symbol: "CV$" },
+  { code: "STD", symbol: "Db" }, { code: "KMF", symbol: "CF" },
+];
+
+function getCurrencySymbol(code: string): string {
+  return CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+}
 
 const TRANSPORT_TYPES = [
   { type: "Train", icon: "🚂" }, { type: "Car", icon: "🚗" }, { type: "Bus", icon: "🚌" },
@@ -216,6 +268,7 @@ export default function TripDetailPage() {
   const [budgetCategory, setBudgetCategory] = useState(BUDGET_PARENT_CATEGORIES[0]);
   const [budgetSubcategory, setBudgetSubcategory] = useState(BUDGET_CATEGORY_MAP[BUDGET_PARENT_CATEGORIES[0]][0]);
   const [budgetDay, setBudgetDay] = useState("");
+  const [budgetCurrency, setBudgetCurrency] = useState("USD");
 
   // Persistent detail data
   const [notesByDay, setNotesByDay] = useState<Record<number, string>>(detail.notesByDay ?? {});
@@ -389,11 +442,10 @@ export default function TripDetailPage() {
   };
   const addBudgetItem = () => {
     const amount = Number(budgetAmount);
-    if (!amount || !budgetDay.trim()) return;
-    const dayStr = /^\d+$/.test(budgetDay.trim()) ? `Day ${budgetDay.trim()}` : budgetDay.trim();
+    if (!amount || !budgetDay) return;
     setBudgetItems((prev) => [
       ...prev,
-      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: dayStr },
+      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: budgetDay, currencyCode: budgetCurrency },
     ]);
     setBudgetAmount("");
     setBudgetDay("");
@@ -789,7 +841,7 @@ export default function TripDetailPage() {
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
                   <div>
                     <p className="text-xs opacity-80">Total Spend</p>
-                    <p className="text-2xl font-semibold">${totalBudget}</p>
+                    <p className="text-2xl font-semibold">{getCurrencySymbol(budgetCurrency)}{totalBudget}</p>
                   </div>
                   <button type="button" onClick={() => setShowStats(true)}
                     className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 transition-colors"
@@ -802,7 +854,7 @@ export default function TripDetailPage() {
                   {budgetItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
                       <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory} · {item.date}</p>
-                      <p className="font-medium text-[--color-text]">${item.amount}</p>
+                      <p className="font-medium text-[--color-text]">{getCurrencySymbol(item.currencyCode ?? "USD")}{item.amount}</p>
                     </div>
                   ))}
                   {budgetItems.length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
@@ -821,10 +873,44 @@ export default function TripDetailPage() {
                       <input value={budgetSubcategory} onChange={(e) => setBudgetSubcategory(e.target.value)} placeholder="Note (optional)" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                     )}
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <input value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} placeholder="Amount ($)" type="number" min="0" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                    <input value={budgetDay} onChange={(e) => setBudgetDay(e.target.value)} placeholder="Day (e.g. 1)" inputMode="numeric" className="rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                    <button type="button" onClick={addBudgetItem} className="rounded bg-[#2d6a4f] px-2 py-1.5 text-sm font-medium text-white">+ Add Cost</button>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Currency dropdown */}
+                    <select
+                      value={budgetCurrency}
+                      onChange={(e) => setBudgetCurrency(e.target.value)}
+                      className="w-28 rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs text-[--color-text]"
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                      ))}
+                    </select>
+                    {/* Amount */}
+                    <input
+                      value={budgetAmount}
+                      onChange={(e) => setBudgetAmount(e.target.value)}
+                      placeholder="Amount"
+                      type="number"
+                      min="0"
+                      className="w-28 rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                    {/* Day dropdown — limited to trip's actual days */}
+                    <select
+                      value={budgetDay}
+                      onChange={(e) => setBudgetDay(e.target.value)}
+                      className="w-24 rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm text-[--color-text]"
+                    >
+                      <option value="">Day</option>
+                      {dayDates.map((_, idx) => (
+                        <option key={idx} value={`Day ${idx + 1}`}>Day {idx + 1}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={addBudgetItem}
+                      className="rounded bg-[#2d6a4f] px-4 py-1.5 text-sm font-medium text-white"
+                    >
+                      + Add Cost
+                    </button>
                   </div>
                 </div>
               </>

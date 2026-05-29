@@ -12,7 +12,7 @@ export type TripRecord = {
 };
 
 export type TripPlace = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; noteBody?: string; type?: "note" };
-export type TripBudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string };
+export type TripBudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string; currencyCode?: string };
 export type TripChecklistItem = { id: string; text: string; done: boolean };
 export type TripChecklistSections = {
   essential: TripChecklistItem[];
@@ -153,6 +153,9 @@ export function getTripDetail(id: string): TripDetailRecord {
   const key = `${TRIP_DETAIL_PREFIX}${id}`;
   const saved = parseJSON<TripDetailRecord>(window.localStorage.getItem(key), defaultTripDetail());
   if (!saved.essentialInfo) saved.essentialInfo = { flights: [], stays: [], transports: [] };
+  // Remove legacy hardcoded seed data
+  const LEGACY_IDS = new Set(["b1", "b2"]);
+  saved.budgetItems = (saved.budgetItems ?? []).filter((item) => !LEGACY_IDS.has(item.id));
   return saved;
 }
 
