@@ -119,7 +119,7 @@ const CURRENCIES: { code: string; symbol: string }[] = [
   { code: "ZWL", symbol: "Z$" }, { code: "BWP", symbol: "P" }, { code: "NAD", symbol: "N$" },
   { code: "MZN", symbol: "MT" }, { code: "AOA", symbol: "Kz" }, { code: "XOF", symbol: "CFA" },
   { code: "XAF", symbol: "FCFA" }, { code: "XCD", symbol: "EC$" }, { code: "SCR", symbol: "SR" },
-  { code: "MUR", symbol: "Rs" }, { code: "MGA", symbol: "Ar" }, { code: "DZD", symbol: "DA" },
+  { code: "MUR", symbol: "Rs" }, { code: "MGA", symbol: "Ar" },
   { code: "SDG", symbol: "SDG" }, { code: "SOS", symbol: "Sh" }, { code: "DJF", symbol: "Fdj" },
   { code: "ERN", symbol: "Nfk" }, { code: "RWF", symbol: "RF" }, { code: "BIF", symbol: "Fr" },
   { code: "CDF", symbol: "FC" }, { code: "GMD", symbol: "D" }, { code: "GNF", symbol: "Fr" },
