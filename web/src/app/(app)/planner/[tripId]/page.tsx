@@ -61,13 +61,10 @@ const QUICK_ADD_CATEGORIES = [
   { label: "Prayer Space", icon: "🕌" },
   { label: "Activity", icon: "🎫" },
   { label: "Shopping", icon: "🛍️" },
-  { label: "Flight", icon: "✈️" },
-  { label: "Stay", icon: "🏨" },
   { label: "Car Rental", icon: "🚗" },
   { label: "Train", icon: "🚂" },
   { label: "Bus", icon: "🚌" },
   { label: "Ferry", icon: "⛴️" },
-  { label: "Note", icon: "📝" },
 ];
 
 const QUICK_ADD = [
@@ -428,8 +425,7 @@ function calcFlightDuration(dep: string, arr: string): string | null {
 function getPeriodOptions(categoryLabel: string): string[] {
   if (categoryLabel === "Restaurant") return ["Breakfast", "Lunch", "Dinner"];
   if (categoryLabel === "Prayer Space") return ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
-  if (categoryLabel === "Flight" || categoryLabel === "Stay") return [];
-  return ["Morning", "Afternoon", "Evening"];
+  return [];
 }
 
 type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string; itemType: "flight" | "stay" | "transport" | "dayplan"; sourceId: string; dayIndex?: number };
@@ -584,15 +580,14 @@ export default function TripDetailPage() {
   const [memoFocused, setMemoFocused] = useState(false);
   const [fabCategory, setFabCategory] = useState<{ label: string; icon: string } | null>(null);
   const [fabInput, setFabInput] = useState("");
-  const [fabNoteBody, setFabNoteBody] = useState("");
   const [fabPeriod, setFabPeriod] = useState("");
   const [fabOthersNote, setFabOthersNote] = useState("");
   const [fabActivitySubType, setFabActivitySubType] = useState("Activity");
+  const [fabCustomSubType, setFabCustomSubType] = useState("");
   const [fabLatLng, setFabLatLng] = useState<{ address: string; lat: number; lng: number } | null>(null);
   const [fabLocationDropdownOpen, setFabLocationDropdownOpen] = useState(false);
   const [fabValidationError, setFabValidationError] = useState("");
   const fabInputRef = useRef<HTMLInputElement>(null);
-  const fabTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Budget
   const [showStats, setShowStats] = useState(false);
@@ -666,11 +661,8 @@ export default function TripDetailPage() {
   }, [tripId, notesByDay, placesByDay, budgetItems, checklistSections, essentialInfo]);
 
   useEffect(() => {
-    if (fabCategory?.label !== "Note" && fabCategory) {
+    if (fabCategory) {
       setTimeout(() => fabInputRef.current?.focus(), 20);
-    }
-    if (fabCategory?.label === "Note") {
-      setTimeout(() => fabTextareaRef.current?.focus(), 20);
     }
   }, [fabCategory]);
 
@@ -736,7 +728,14 @@ export default function TripDetailPage() {
       setFabInput(place.name);
       setFabPeriod(place.period ?? "");
       setFabOthersNote(place.noteBody ?? "");
-      setFabActivitySubType(place.subType ?? "Activity");
+      const storedSubType = place.subType ?? "Activity";
+      if (["Tour", "Activity", "Experience", "Class"].includes(storedSubType)) {
+        setFabActivitySubType(storedSubType);
+        setFabCustomSubType("");
+      } else {
+        setFabActivitySubType("Custom");
+        setFabCustomSubType(storedSubType);
+      }
       setFabLatLng(place.lat !== undefined ? { address: place.address ?? "", lat: place.lat, lng: place.lng ?? 0 } : null);
       setEditingPlaceId(place.id);
       setReturnToSummaryAfterEdit(true);
@@ -780,6 +779,10 @@ export default function TripDetailPage() {
       return;
     }
 
+    const resolvedSubType = fabActivitySubType === "Custom"
+      ? (fabCustomSubType.trim() || "Activity")
+      : fabActivitySubType;
+
     if (editingPlaceId !== null) {
       setPlacesByDay((prev) => ({
         ...prev,
@@ -792,7 +795,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             period: fabPeriod || undefined,
             noteBody: fabOthersNote.trim() || undefined,
-            ...(fabCategory.label === "Activity" ? { subType: fabActivitySubType } : {}),
+            ...(fabCategory.label === "Activity" ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           };
         }),
@@ -814,7 +817,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             ...(fabPeriod ? { period: fabPeriod } : {}),
             ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
-            ...(fabCategory.label === "Activity" ? { subType: fabActivitySubType } : {}),
+            ...(fabCategory.label === "Activity" ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           },
         ],
@@ -824,29 +827,11 @@ export default function TripDetailPage() {
     setFabPeriod("");
     setFabOthersNote("");
     setFabActivitySubType("Activity");
+    setFabCustomSubType("");
     setFabLatLng(null);
     setFabCategory(null);
   };
 
-  const addFabNote = () => {
-    setPlacesByDay((prev) => ({
-      ...prev,
-      [currentDayIndex]: [
-        ...(prev[currentDayIndex] ?? []),
-        {
-          id: `${Date.now()}`,
-          name: fabInput.trim(),
-          category: "Note",
-          icon: "📝",
-          noteBody: fabNoteBody.trim(),
-          type: "note" as const,
-        },
-      ],
-    }));
-    setFabInput("");
-    setFabNoteBody("");
-    setFabCategory(null);
-  };
 
   const removePlace = (id: string) => {
     setPlacesByDay((prev) => ({
@@ -1625,7 +1610,7 @@ export default function TripDetailPage() {
             </div>
 
             {/* Inline input for selected category */}
-            {fabCategory && fabCategory.label !== "Note" && (
+            {fabCategory && (
               <div className="space-y-2.5 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
                 {/* Name / location search */}
                 <div className="flex items-center gap-2">
@@ -1669,17 +1654,27 @@ export default function TripDetailPage() {
 
                 {/* Activity sub-type selector */}
                 {fabCategory.label === "Activity" && (
-                  <div className="flex gap-2">
-                    {["Tour", "Activity", "Show"].map((sub) => (
-                      <button
-                        key={sub}
-                        type="button"
-                        onClick={() => setFabActivitySubType(sub)}
-                        className={["rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
-                          fabActivitySubType === sub ? "border-[#2d6a4f] bg-[#2d6a4f] text-white" : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
-                        ].join(" ")}
-                      >{sub}</button>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {["Tour", "Activity", "Experience", "Class", "Custom"].map((sub) => (
+                        <button
+                          key={sub}
+                          type="button"
+                          onClick={() => setFabActivitySubType(sub)}
+                          className={["rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
+                            fabActivitySubType === sub ? "border-[#2d6a4f] bg-[#2d6a4f] text-white" : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
+                          ].join(" ")}
+                        >{sub}</button>
+                      ))}
+                    </div>
+                    {fabActivitySubType === "Custom" && (
+                      <input
+                        value={fabCustomSubType}
+                        onChange={(e) => setFabCustomSubType(e.target.value)}
+                        placeholder="Enter sub-type..."
+                        className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
+                      />
+                    )}
                   </div>
                 )}
 
@@ -1706,42 +1701,16 @@ export default function TripDetailPage() {
                 <input
                   value={fabOthersNote}
                   onChange={(e) => setFabOthersNote(e.target.value)}
-                  placeholder="Others (optional note)"
+                  placeholder="Note (optional)"
                   className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
                 />
                 <div className="flex gap-2">
                   <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">{editingPlaceId ? "Save" : "Add"}</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabCustomSubType(""); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
                 </div>
               </div>
             )}
 
-            {fabCategory?.label === "Note" && (
-              <div className="space-y-2 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">📝</span>
-                  <input
-                    ref={fabInputRef}
-                    value={fabInput}
-                    onChange={(e) => setFabInput(e.target.value)}
-                    placeholder="Note title... (optional)"
-                    className="flex-1 bg-transparent text-sm outline-none"
-                  />
-                </div>
-                <textarea
-                  ref={fabTextareaRef}
-                  value={fabNoteBody}
-                  onChange={(e) => setFabNoteBody(e.target.value)}
-                  placeholder="Write anything freely..."
-                  rows={3}
-                  className="w-full resize-none rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm outline-none focus:border-[#2d6a4f]"
-                />
-                <div className="flex gap-2">
-                  <button type="button" onClick={addFabNote} className="rounded bg-[#2d6a4f] px-3 py-1.5 text-xs text-white">Add</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabNoteBody(""); setFabPeriod(""); setFabOthersNote(""); }} className="rounded border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text-muted]">Cancel</button>
-                </div>
-              </div>
-            )}
 
             {/* Day memo */}
             <textarea
@@ -1961,27 +1930,6 @@ function SortablePlaceCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: place.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-
-  if (place.type === "note") {
-    return (
-      <div ref={setNodeRef} style={style}
-        className="rounded-lg border border-[--color-border] bg-[#fef9f0] p-3"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2">
-            <span {...attributes} {...listeners} className="mt-0.5 cursor-grab select-none text-lg text-[--color-text-muted] active:cursor-grabbing">⠿</span>
-            <div>
-              <p className="text-sm font-medium text-[--color-text]">📝 {place.name || "Note"}</p>
-              {place.noteBody && (
-                <p className="mt-1 whitespace-pre-wrap text-xs text-[--color-text-muted]">{place.noteBody}</p>
-              )}
-            </div>
-          </div>
-          <button type="button" onClick={() => onRemove(place.id)} className="shrink-0 text-sm text-[--color-text-muted] hover:text-[#c4704a]">✕</button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div ref={setNodeRef} style={style}
