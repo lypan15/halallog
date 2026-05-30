@@ -573,6 +573,7 @@ export default function TripDetailPage() {
   const [toSearch, setToSearch] = useState("");
   const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [editingStayId, setEditingStayId] = useState<string | null>(null);
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
   const [returnToSummaryAfterEdit, setReturnToSummaryAfterEdit] = useState(false);
   const [summaryConfirmDelete, setSummaryConfirmDelete] = useState<TimelineItem | null>(null);
@@ -689,6 +690,12 @@ export default function TripDetailPage() {
       setFlightPriceCurrency("USD");
     }
   }, [showFlightForm]);
+
+  useEffect(() => {
+    if (!showStayForm) {
+      setEditingStayId(null);
+    }
+  }, [showStayForm]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
   const saveTripEdit = (newName: string, start: string, end: string) => {
@@ -950,7 +957,15 @@ export default function TripDetailPage() {
     }
   };
   const saveStay = () => {
-    setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: `${Date.now()}`, ...draftStay }] }));
+    if (editingStayId) {
+      setEssentialInfo((prev) => ({
+        ...prev,
+        stays: prev.stays.map((s) => s.id === editingStayId ? { id: s.id, ...draftStay } : s),
+      }));
+      setEditingStayId(null);
+    } else {
+      setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: `${Date.now()}`, ...draftStay }] }));
+    }
     setDraftStay(emptyStay());
     setShowStayForm(false);
   };
@@ -1471,12 +1486,35 @@ export default function TripDetailPage() {
               <div className="space-y-2">
                 {essentialInfo.stays.map((s) => (
                   <div key={s.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[--color-text]">🏨 {s.propertyName || "Stay"}</p>
                       {s.checkInDate && <p className="text-xs text-[--color-text-muted]">Check-in {s.checkInDate} {s.checkInTime}</p>}
                       {s.checkOutDate && <p className="text-xs text-[--color-text-muted]">Check-out {s.checkOutDate} {s.checkOutTime}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteStay(s.id)} className="text-xs text-[#c4704a]">✕</button>
+                    <div className="ml-2 flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftStay({
+                            propertyName: s.propertyName,
+                            checkInDate: s.checkInDate,
+                            checkInTime: s.checkInTime,
+                            checkOutDate: s.checkOutDate,
+                            checkOutTime: s.checkOutTime,
+                            address: s.address,
+                            attachmentName: s.attachmentName,
+                          });
+                          setEditingStayId(s.id);
+                          setShowStayForm(true);
+                          setShowFlightForm(false);
+                          setShowTransportForm(false);
+                        }}
+                        className="text-xs text-[#2d6a4f] hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => deleteStay(s.id)} className="text-xs text-[#c4704a]">✕</button>
+                    </div>
                   </div>
                 ))}
                 {!showStayForm && (

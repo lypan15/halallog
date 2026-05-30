@@ -98,7 +98,7 @@ export default function EatPage() {
             filtered.map((place) => (
               <Link
                 key={place.id}
-                href={`/map/${place.id}`}
+                href={`/eat/${place.id}`}
                 className="block rounded-xl border border-[--color-border] p-3 transition-colors hover:border-[#2d6a4f]"
               >
                 <div className="flex items-center justify-between">

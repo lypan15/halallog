@@ -30,12 +30,7 @@ export const usePrayerStore = create<PrayerStore>()(
       overrideTimes: {},
 
       setGlobalEnabled: (v) =>
-        set((s) => ({
-          globalEnabled: v,
-          prayers: Object.fromEntries(
-            PRAYER_NAMES.map((n) => [n, { ...s.prayers[n], enabled: v }])
-          ) as Record<PrayerName, PrayerNotifSetting>,
-        })),
+        set({ globalEnabled: v }),
 
       setPrayerEnabled: (name, v) =>
         set((s) => {

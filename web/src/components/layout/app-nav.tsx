@@ -10,7 +10,7 @@ const NAV_ITEMS = [
     icon: "🧳",
   },
   {
-    href: "/map",
+    href: "/eat",
     label: "Eat",
     icon: "🍽️",
   },
@@ -26,7 +26,7 @@ const NAV_ITEMS = [
     icon: "🕌",
   },
   {
-    href: "/tour",
+    href: "/explore",
     label: "Explore",
     icon: "✨",
   },

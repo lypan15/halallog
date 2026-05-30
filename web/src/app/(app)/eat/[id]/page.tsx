@@ -22,7 +22,7 @@ export default async function EatDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-4">
       <Link
-        href="/map"
+        href="/eat"
         className="inline-flex rounded-lg border border-[--color-border] px-3 py-1.5 text-sm font-medium text-[--color-text-muted] transition-colors hover:text-[--color-text]"
       >
         ← Back to Eat

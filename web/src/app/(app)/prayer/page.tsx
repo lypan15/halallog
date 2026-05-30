@@ -113,7 +113,7 @@ function CustomPopup({
             color: "var(--color-text)",
           }}
         >
-          직접 입력
+          Custom
         </p>
         <p
           style={{
@@ -123,7 +123,7 @@ function CustomPopup({
             marginBottom: 20,
           }}
         >
-          {PRAYER_META[prayerName].icon} {prayerName} 알림
+          {PRAYER_META[prayerName].icon} {prayerName} notification
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -148,13 +148,13 @@ function CustomPopup({
             }}
           />
           <span style={{ fontSize: 13, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
-            분 전
+            min before
           </span>
         </div>
 
         {raw !== "" && !valid && (
           <p style={{ fontSize: 11, color: "#c4704a", textAlign: "center", marginTop: 6 }}>
-            1–60 사이 숫자를 입력해주세요
+            Please enter a number between 1–60
           </p>
         )}
 
@@ -173,7 +173,7 @@ function CustomPopup({
               cursor: "pointer",
             }}
           >
-            취소
+            Cancel
           </button>
           <button
             type="button"
@@ -191,7 +191,7 @@ function CustomPopup({
               cursor: valid ? "pointer" : "not-allowed",
             }}
           >
-            확인
+            Confirm
           </button>
         </div>
       </div>
@@ -256,7 +256,7 @@ function OverridePopup({
             marginBottom: 20,
           }}
         >
-          기본값을 덮어씁니다 (manual override)
+          Overrides default time
         </p>
 
         <input
@@ -425,7 +425,7 @@ export default function PrayerPage() {
               <p className="text-xs text-[--color-text-muted]">Mecca · test data</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[--color-text-muted]">전체 알림</span>
+              <span className="text-xs text-[--color-text-muted]">All Notifications</span>
               <Toggle
                 on={globalEnabled}
                 onToggle={() => store.setGlobalEnabled(!globalEnabled)}
@@ -447,7 +447,7 @@ export default function PrayerPage() {
             const isOverridden = !!overrideTimes[name];
 
             return (
-              <div key={name} className="px-4 py-3">
+              <div key={name} className="px-4 py-3" style={{ opacity: globalEnabled ? 1 : 0.5 }}>
                 {/* Prayer name + time + toggle */}
                 <div className="flex items-center gap-3">
                   <span className="w-7 shrink-0 text-center text-xl">{meta.icon}</span>
@@ -507,7 +507,7 @@ export default function PrayerPage() {
                           fontWeight: 500,
                         }}
                       >
-                        알림 설정
+                        Notify me
                       </span>
                     </div>
 
@@ -531,12 +531,12 @@ export default function PrayerPage() {
                               cursor: "pointer",
                             }}
                           >
-                            {min}분 전
+                            {min} min before
                           </button>
                         );
                       })}
 
-                      {/* 직접 입력 chip */}
+                      {/* Custom chip */}
                       <button
                         type="button"
                         onClick={() => setCustomTarget(name)}
@@ -551,7 +551,7 @@ export default function PrayerPage() {
                           cursor: "pointer",
                         }}
                       >
-                        {isCustomMin ? `${setting.minutesBefore}분 전` : "직접 입력"}
+                        {isCustomMin ? `${setting.minutesBefore} min before` : "Custom"}
                       </button>
                     </div>
                   </div>
