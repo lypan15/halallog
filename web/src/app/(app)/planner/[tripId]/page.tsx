@@ -445,6 +445,15 @@ function fmtDayTab(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Map a cost item to its trip day index (or null → "Other"). Shared by the
+// grouped Cost list and the BudgetStats "By Day" breakdown.
+function costDayIndex(item: BudgetItem, dayDates: Date[]): number | null {
+  const m = /^Day (\d+)$/.exec(item.date);
+  if (m) return Number(m[1]) - 1;
+  const i = dayDates.findIndex((d) => formatDate(d) === item.date);
+  return i >= 0 ? i : null;
+}
+
 function formatDayHeader(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -692,15 +701,8 @@ export default function TripDetailPage() {
 
   const totalBudget = budgetItems.reduce((sum, item) => sum + item.amount, 0);
 
-  // Map a cost item to its trip day index (or null → "Other" group).
-  const costDayIndex = (item: BudgetItem): number | null => {
-    const m = /^Day (\d+)$/.exec(item.date);
-    if (m) return Number(m[1]) - 1;
-    const i = dayDates.findIndex((d) => formatDate(d) === item.date);
-    return i >= 0 ? i : null;
-  };
   const costDayGroups = dayDates
-    .map((_, i) => ({ i, items: budgetItems.filter((b) => costDayIndex(b) === i) }))
+    .map((_, i) => ({ i, items: budgetItems.filter((b) => costDayIndex(b, dayDates) === i) }))
     .filter((g) => g.items.length > 0);
   const costGroupedIds = new Set(costDayGroups.flatMap((g) => g.items.map((b) => b.id)));
   const costOtherItems = budgetItems.filter((b) => !costGroupedIds.has(b.id));
@@ -1977,7 +1979,7 @@ export default function TripDetailPage() {
         {activeTab === "budget" && (
           <div className="space-y-4">
             {showStats ? (
-              <BudgetStats items={budgetItems} total={totalBudget} currency={budgetCurrency} onBack={() => setShowStats(false)} />
+              <BudgetStats items={budgetItems} total={totalBudget} currency={budgetCurrency} dayDates={dayDates} onBack={() => setShowStats(false)} />
             ) : (
               <>
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
@@ -2309,7 +2311,9 @@ function ChecklistSection({ title, items, onToggle }: { title: string; items: Ch
   );
 }
 
-function BudgetStats({ items, total, currency, onBack }: { items: BudgetItem[]; total: number; currency: string; onBack: () => void }) {
+// Donut chart (center Total) + per-category breakdown list. Renders as a
+// fragment so callers control surrounding layout/spacing.
+function CategoryBreakdown({ items, total, currency }: { items: BudgetItem[]; total: number; currency: string }) {
   const categoryTotals = items.reduce<Record<string, number>>((acc, item) => {
     acc[item.category] = (acc[item.category] ?? 0) + item.amount;
     return acc;
@@ -2330,54 +2334,97 @@ function BudgetStats({ items, total, currency, onBack }: { items: BudgetItem[]; 
   });
 
   return (
+    <>
+      {/* Donut chart */}
+      <div className="flex justify-center py-2">
+        <svg width="160" height="160" viewBox="0 0 100 100" aria-hidden="true">
+          {/* Background ring */}
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-border)" strokeWidth="12" />
+          <g transform="rotate(-90 50 50)">
+            {segments.map(({ cat, seg, startOffset, color }) => (
+              <circle
+                key={cat}
+                cx="50"
+                cy="50"
+                r={r}
+                fill="none"
+                stroke={color}
+                strokeWidth="12"
+                strokeDasharray={`${seg} ${circumference - seg}`}
+                strokeDashoffset={-startOffset}
+              />
+            ))}
+          </g>
+          {/* Center labels */}
+          <text x="50" y="47" textAnchor="middle" style={{ fontSize: 7, fontWeight: 600, fill: "var(--color-text-muted)" }}>Total</text>
+          <text x="50" y="59" textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: "var(--color-text)" }}>{sym}{total}</text>
+        </svg>
+      </div>
+
+      {/* Category breakdown */}
+      <div className="space-y-2.5">
+        {segments.map(({ cat, amount, color }) => {
+          const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
+          return (
+            <div key={cat} className="flex items-center gap-3">
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+              <p className="flex-1 truncate text-sm text-[--color-text]">{cat}</p>
+              <p className="text-xs text-[--color-text-muted]">{pct}%</p>
+              <p className="w-20 text-right text-sm font-medium text-[--color-text]">{sym}{amount}</p>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function BudgetStats({ items, total, currency, dayDates, onBack }: { items: BudgetItem[]; total: number; currency: string; dayDates: Date[]; onBack: () => void }) {
+  const [showByDay, setShowByDay] = useState(false);
+  const sym = getCurrencySymbol(currency);
+
+  // Per-day groups, each with its items + total (mirrors the grouped Cost list:
+  // ISO match / legacy "Day N" / null → Other).
+  const dayBuckets = dayDates.map((_, i) => ({ i, items: items.filter((it) => costDayIndex(it, dayDates) === i) }));
+  const dayGroupedIds = new Set(dayBuckets.flatMap((b) => b.items.map((it) => it.id)));
+  const otherItems = items.filter((it) => !dayGroupedIds.has(it.id));
+  const dayBreakdowns = [
+    ...dayBuckets
+      .filter((b) => b.items.length > 0)
+      .map((b) => ({ key: `day-${b.i}`, label: `Day ${b.i + 1} · ${fmtDayTab(dayDates[b.i])}`, total: b.items.reduce((s, it) => s + it.amount, 0), items: b.items })),
+    ...(otherItems.length > 0 ? [{ key: "other", label: "Other", total: otherItems.reduce((s, it) => s + it.amount, 0), items: otherItems }] : []),
+  ];
+
+  return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <button type="button" onClick={onBack} className="rounded-lg border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">← Cost</button>
-        <p className="font-semibold text-[--color-text]">Spending by Category</p>
+        <p className="font-semibold text-[--color-text]">Stats</p>
       </div>
 
-      {entries.length > 0 ? (
+      {items.length > 0 ? (
         <>
-          {/* Donut chart */}
-          <div className="flex justify-center py-2">
-            <svg width="160" height="160" viewBox="0 0 100 100" aria-hidden="true">
-              {/* Background ring */}
-              <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-border)" strokeWidth="12" />
-              <g transform="rotate(-90 50 50)">
-                {segments.map(({ cat, seg, startOffset, color }) => (
-                  <circle
-                    key={cat}
-                    cx="50"
-                    cy="50"
-                    r={r}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="12"
-                    strokeDasharray={`${seg} ${circumference - seg}`}
-                    strokeDashoffset={-startOffset}
-                  />
-                ))}
-              </g>
-              {/* Center labels */}
-              <text x="50" y="47" textAnchor="middle" style={{ fontSize: 7, fontWeight: 600, fill: "var(--color-text-muted)" }}>Total</text>
-              <text x="50" y="59" textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: "var(--color-text)" }}>{sym}{total}</text>
-            </svg>
-          </div>
+          <p className="text-sm font-semibold text-[--color-text]">By Category</p>
+          <CategoryBreakdown items={items} total={total} currency={currency} />
 
-          {/* Category breakdown */}
-          <div className="space-y-2.5">
-            {segments.map(({ cat, amount, color }) => {
-              const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
-              return (
-                <div key={cat} className="flex items-center gap-3">
-                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                  <p className="flex-1 truncate text-sm text-[--color-text]">{cat}</p>
-                  <p className="text-xs text-[--color-text-muted]">{pct}%</p>
-                  <p className="w-20 text-right text-sm font-medium text-[--color-text]">{sym}{amount}</p>
+          {/* By Day breakdown — collapsible, mini donut per day */}
+          <button type="button" onClick={() => setShowByDay((v) => !v)} className="flex w-full items-center gap-1.5">
+            <span className="w-3 text-xs text-[--color-text-muted]">{showByDay ? "▾" : "▸"}</span>
+            <p className="text-sm font-semibold text-[--color-text]">By Day</p>
+          </button>
+          {showByDay && (
+            <div className="space-y-3">
+              {dayBreakdowns.map((d) => (
+                <div key={d.key} className="space-y-2.5 rounded-lg border border-[--color-border] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="flex-1 truncate text-sm font-semibold text-[--color-text]">{d.label}</p>
+                    <p className="text-sm font-medium text-[--color-text]">{sym}{d.total}</p>
+                  </div>
+                  <CategoryBreakdown items={d.items} total={d.total} currency={currency} />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>
