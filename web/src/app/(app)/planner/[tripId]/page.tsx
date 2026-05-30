@@ -480,6 +480,20 @@ function defaultSubType(categoryLabel: string): string {
   return "Activity"; // Things to Do
 }
 
+// Map a Day Plan category label → Budget category (BUDGET_CATEGORY_MAP key).
+// Returns null for categories that never link to a cost (e.g. Prayer Space).
+function dayPlanBudgetCategory(categoryLabel: string): string | null {
+  switch (categoryLabel) {
+    case "Food": return "🍽️ Food";
+    case "Place":
+    case "Things to Do": return "🎫 Activities";
+    case "Transport": return "🚌 Transport";
+    case "Shopping": return "🛍️ Shopping";
+    case "Custom": return "📎 Others";
+    default: return null; // Prayer Space (and anything unmapped)
+  }
+}
+
 type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string; itemType: "flight" | "stay" | "transport" | "dayplan"; sourceId: string; dayIndex?: number };
 type TimelineGroup = { date: string; dateLabel: string; items: TimelineItem[] };
 
@@ -627,6 +641,8 @@ export default function TripDetailPage() {
   const [fabOthersNote, setFabOthersNote] = useState("");
   const [fabActivitySubType, setFabActivitySubType] = useState("Activity");
   const [fabCustomSubType, setFabCustomSubType] = useState("");
+  const [fabPriceInput, setFabPriceInput] = useState("");
+  const [fabPriceCurrency, setFabPriceCurrency] = useState("USD");
   const [fabLatLng, setFabLatLng] = useState<{ address: string; lat: number; lng: number } | null>(null);
   const [fabLocationDropdownOpen, setFabLocationDropdownOpen] = useState(false);
   const [fabValidationError, setFabValidationError] = useState("");
@@ -796,6 +812,8 @@ export default function TripDetailPage() {
         setFabActivitySubType("Custom");
         setFabCustomSubType(storedSubType);
       }
+      setFabPriceInput(place.price !== undefined ? String(place.price) : "");
+      setFabPriceCurrency(place.priceCurrency ?? "USD");
       setFabLatLng(place.lat !== undefined ? { address: place.address ?? "", lat: place.lat, lng: place.lng ?? 0 } : null);
       setEditingPlaceId(place.id);
       setReturnToSummaryAfterEdit(true);
@@ -815,6 +833,7 @@ export default function TripDetailPage() {
         ...prev,
         [item.dayIndex!]: (prev[item.dayIndex!] ?? []).filter((p) => p.id !== item.sourceId),
       }));
+      setBudgetItems((prev) => prev.filter((b) => b.id !== `d-${item.sourceId}`));
     }
     setSummaryConfirmDelete(null);
   };
@@ -841,6 +860,46 @@ export default function TripDetailPage() {
       ? (fabCustomSubType.trim() || defaultSubType(fabCategory.label))
       : fabActivitySubType;
 
+    const numFabPrice = parseFloat(fabPriceInput);
+    const hasFabPrice = fabCategory.label !== "Prayer Space" && isFinite(numFabPrice) && numFabPrice > 0;
+
+    // Cost (Budget) linking — mirrors saveFlight/saveStay.
+    const budgetCat = dayPlanBudgetCategory(fabCategory.label);
+    const itemSubType = (fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") ? resolvedSubType : undefined;
+    const budgetSub = budgetCat === "📎 Others" ? "" : (itemSubType ?? "Other");
+    const budgetDate = dayDates[currentDayIndex] ? formatDate(dayDates[currentDayIndex]) : "";
+    const linkBudget = (placeId: string) => {
+      const budgetEntryId = `d-${placeId}`;
+      if (!hasFabPrice || !budgetCat) {
+        setBudgetItems((prev) => prev.filter((b) => b.id !== budgetEntryId));
+        return;
+      }
+      const cat = budgetCat;
+      setBudgetItems((prev) => {
+        const exists = prev.some((b) => b.id === budgetEntryId);
+        if (exists) {
+          // Preserve the user's isPaid on update — only a new item starts unpaid.
+          return prev.map((b) =>
+            b.id === budgetEntryId
+              ? { ...b, category: cat, subcategory: budgetSub, amount: numFabPrice, date: budgetDate, currencyCode: fabPriceCurrency }
+              : b
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: budgetEntryId,
+            category: cat,
+            subcategory: budgetSub,
+            amount: numFabPrice,
+            date: budgetDate,
+            currencyCode: fabPriceCurrency,
+            isPaid: false,
+          },
+        ];
+      });
+    };
+
     if (editingPlaceId !== null) {
       setPlacesByDay((prev) => ({
         ...prev,
@@ -854,38 +913,45 @@ export default function TripDetailPage() {
             period: fabPeriod || undefined,
             noteBody: fabOthersNote.trim() || undefined,
             ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") ? { subType: resolvedSubType } : {}),
+            ...(hasFabPrice ? { price: numFabPrice, priceCurrency: fabPriceCurrency } : { price: undefined, priceCurrency: undefined }),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           };
         }),
       }));
+      linkBudget(editingPlaceId);
       setEditingPlaceId(null);
       if (returnToSummaryAfterEdit) {
         setReturnToSummaryAfterEdit(false);
         setActiveTab("summary");
       }
     } else {
+      const newPlaceId = `${Date.now()}`;
       setPlacesByDay((prev) => ({
         ...prev,
         [currentDayIndex]: [
           ...(prev[currentDayIndex] ?? []),
           {
-            id: `${Date.now()}`,
+            id: newPlaceId,
             name: fabInput.trim(),
             category: fabCategory.label,
             icon: fabCategory.icon,
             ...(fabPeriod ? { period: fabPeriod } : {}),
             ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
             ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") ? { subType: resolvedSubType } : {}),
+            ...(hasFabPrice ? { price: numFabPrice, priceCurrency: fabPriceCurrency } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           },
         ],
       }));
+      linkBudget(newPlaceId);
     }
     setFabInput("");
     setFabPeriod("");
     setFabOthersNote("");
     setFabActivitySubType("Activity");
     setFabCustomSubType("");
+    setFabPriceInput("");
+    setFabPriceCurrency("USD");
     setFabLatLng(null);
     setFabCategory(null);
   };
@@ -896,6 +962,7 @@ export default function TripDetailPage() {
       ...prev,
       [currentDayIndex]: (prev[currentDayIndex] ?? []).filter((p) => p.id !== id),
     }));
+    setBudgetItems((prev) => prev.filter((b) => b.id !== `d-${id}`));
   };
 
   const updatePlaceTime = (id: string, time: string) => {
@@ -1842,9 +1909,33 @@ export default function TripDetailPage() {
                   placeholder="Note (optional)"
                   className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
                 />
+
+                {/* Price (optional) — all categories except Prayer Space */}
+                {fabCategory.label !== "Prayer Space" && (
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      value={fabPriceCurrency}
+                      onChange={(e) => setFabPriceCurrency(e.target.value)}
+                      className="w-28 rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs text-[--color-text]"
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                      ))}
+                    </select>
+                    <input
+                      value={fabPriceInput}
+                      onChange={(e) => setFabPriceInput(e.target.value)}
+                      placeholder="Price (optional)"
+                      type="number"
+                      min="0"
+                      className="w-28 rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">{editingPlaceId ? "Save" : "Add"}</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabCustomSubType(""); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabCustomSubType(""); setFabPriceInput(""); setFabPriceCurrency("USD"); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
                 </div>
               </div>
             )}
