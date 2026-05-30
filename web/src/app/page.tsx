@@ -9,7 +9,7 @@ const FEATURES = [
     title: "Trips",
   },
   {
-    href: "/map",
+    href: "/eat",
     icon: "🍽️",
     title: "Eat",
   },
@@ -19,7 +19,7 @@ const FEATURES = [
     title: "Pray",
   },
   {
-    href: "/tour",
+    href: "/explore",
     icon: "✨",
     title: "Explore",
   },
