@@ -58,7 +58,7 @@ const QUICK_ADD_CATEGORIES = [
   { label: "Place", icon: "📍" },
   { label: "Restaurant", icon: "🍽️" },
   { label: "Prayer Space", icon: "🕌" },
-  { label: "Activity", icon: "🎫" },
+  { label: "Things to Do", icon: "🎫" },
   { label: "Shopping", icon: "🛍️" },
   { label: "Transport", icon: "🚌" },
   { label: "Custom", icon: "📌" },
@@ -148,7 +148,7 @@ const FLIGHT_PRICE_CURRENCIES = [
   { code: "IDR", symbol: "Rp" },
 ];
 
-const FAB_SEARCHABLE = ["Place", "Restaurant", "Prayer Space", "Activity", "Shopping"];
+const FAB_SEARCHABLE = ["Place", "Restaurant", "Prayer Space", "Things to Do", "Shopping"];
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(":").map(Number);
@@ -184,7 +184,7 @@ function getValidationMessage(category: string): string {
     "Place": "Please enter a place name",
     "Restaurant": "Please enter a restaurant name",
     "Prayer Space": "Please enter a prayer space name",
-    "Activity": "Please enter a name",
+    "Things to Do": "Please enter a name",
     "Shopping": "Please enter a store name",
   };
   return msgs[category] ?? "Please enter a name";
@@ -255,27 +255,27 @@ const MOCK_LOCATIONS: MockLocation[] = [
   { category: "Prayer Space", name: "Tokyo Camii", address: "1-19 Oyamacho, Shibuya City, Tokyo", lat: 35.6682, lng: 139.7008 },
   { category: "Prayer Space", name: "Grande Mosquée de Paris", address: "2 Bis Pl. du Puits de l'Ermite, Paris", lat: 48.8444, lng: 2.3537 },
   { category: "Prayer Space", name: "Mosquée Adda'wa Paris", address: "39 Rue de Tanger, Paris 75019", lat: 48.8833, lng: 2.3680 },
-  // Activity
-  { category: "Activity", name: "Han River Cruise Seoul", address: "Yeouido Hangang Park, Seoul", lat: 37.5260, lng: 126.9320 },
-  { category: "Activity", name: "K-Culture Experience Tour", address: "4 Insadong-gil, Jongno-gu, Seoul", lat: 37.5740, lng: 126.9854 },
-  { category: "Activity", name: "DMZ Tour from Seoul", address: "Seoul Station, Seoul", lat: 37.5546, lng: 126.9707 },
-  { category: "Activity", name: "Bosphorus Boat Tour", address: "Eminönü Pier, Istanbul", lat: 41.0168, lng: 28.9809 },
-  { category: "Activity", name: "Princes Islands Tour", address: "Adalar, Istanbul", lat: 40.8766, lng: 29.0874 },
-  { category: "Activity", name: "Cappadocia Hot Air Balloon", address: "Göreme, Nevşehir Province, Turkey", lat: 38.6431, lng: 34.8296 },
-  { category: "Activity", name: "Dubai Desert Safari", address: "Al Marmum Desert, Dubai", lat: 24.8950, lng: 55.3690 },
-  { category: "Activity", name: "Dubai Marina Yacht Cruise", address: "Dubai Marina, Dubai", lat: 25.0819, lng: 55.1367 },
-  { category: "Activity", name: "Burj Khalifa At the Top", address: "1 Sheikh Mohammed bin Rashid Blvd, Dubai", lat: 25.1972, lng: 55.2744 },
-  { category: "Activity", name: "Universal Studios Singapore", address: "8 Sentosa Gateway, Singapore 098269", lat: 1.2540, lng: 103.8238 },
-  { category: "Activity", name: "Singapore Night Safari", address: "80 Mandai Lake Rd, Singapore 729826", lat: 1.4043, lng: 103.7926 },
-  { category: "Activity", name: "Singapore Flyer", address: "30 Raffles Ave, Singapore 039803", lat: 1.2893, lng: 103.8631 },
-  { category: "Activity", name: "KL Tower Observation Deck", address: "Bukit Nanas, 50480 Kuala Lumpur", lat: 3.1528, lng: 101.7038 },
-  { category: "Activity", name: "Petronas Towers Sky Bridge", address: "KLCC, 50088 Kuala Lumpur", lat: 3.1578, lng: 101.7119 },
-  { category: "Activity", name: "Thames River Cruise London", address: "Westminster Pier, Victoria Embankment, London", lat: 51.5024, lng: -0.1222 },
-  { category: "Activity", name: "Harry Potter Studio Tour", address: "Studio Tour Dr, Leavesden WD25 7LR", lat: 51.6903, lng: -0.4199 },
-  { category: "Activity", name: "Tokyo DisneySea", address: "1-13 Maihama, Urayasu, Chiba", lat: 35.6270, lng: 139.8824 },
-  { category: "Activity", name: "Mt. Fuji Day Trip", address: "Fujisan, Fujiyoshida, Yamanashi", lat: 35.3606, lng: 138.7274 },
-  { category: "Activity", name: "Seine River Cruise Paris", address: "Port de la Bourdonnais, Paris 75007", lat: 48.8603, lng: 2.2917 },
-  { category: "Activity", name: "Versailles Palace Tour", address: "Place d'Armes, 78000 Versailles", lat: 48.8049, lng: 2.1204 },
+  // Things to Do
+  { category: "Things to Do", name: "Han River Cruise Seoul", address: "Yeouido Hangang Park, Seoul", lat: 37.5260, lng: 126.9320 },
+  { category: "Things to Do", name: "K-Culture Experience Tour", address: "4 Insadong-gil, Jongno-gu, Seoul", lat: 37.5740, lng: 126.9854 },
+  { category: "Things to Do", name: "DMZ Tour from Seoul", address: "Seoul Station, Seoul", lat: 37.5546, lng: 126.9707 },
+  { category: "Things to Do", name: "Bosphorus Boat Tour", address: "Eminönü Pier, Istanbul", lat: 41.0168, lng: 28.9809 },
+  { category: "Things to Do", name: "Princes Islands Tour", address: "Adalar, Istanbul", lat: 40.8766, lng: 29.0874 },
+  { category: "Things to Do", name: "Cappadocia Hot Air Balloon", address: "Göreme, Nevşehir Province, Turkey", lat: 38.6431, lng: 34.8296 },
+  { category: "Things to Do", name: "Dubai Desert Safari", address: "Al Marmum Desert, Dubai", lat: 24.8950, lng: 55.3690 },
+  { category: "Things to Do", name: "Dubai Marina Yacht Cruise", address: "Dubai Marina, Dubai", lat: 25.0819, lng: 55.1367 },
+  { category: "Things to Do", name: "Burj Khalifa At the Top", address: "1 Sheikh Mohammed bin Rashid Blvd, Dubai", lat: 25.1972, lng: 55.2744 },
+  { category: "Things to Do", name: "Universal Studios Singapore", address: "8 Sentosa Gateway, Singapore 098269", lat: 1.2540, lng: 103.8238 },
+  { category: "Things to Do", name: "Singapore Night Safari", address: "80 Mandai Lake Rd, Singapore 729826", lat: 1.4043, lng: 103.7926 },
+  { category: "Things to Do", name: "Singapore Flyer", address: "30 Raffles Ave, Singapore 039803", lat: 1.2893, lng: 103.8631 },
+  { category: "Things to Do", name: "KL Tower Observation Deck", address: "Bukit Nanas, 50480 Kuala Lumpur", lat: 3.1528, lng: 101.7038 },
+  { category: "Things to Do", name: "Petronas Towers Sky Bridge", address: "KLCC, 50088 Kuala Lumpur", lat: 3.1578, lng: 101.7119 },
+  { category: "Things to Do", name: "Thames River Cruise London", address: "Westminster Pier, Victoria Embankment, London", lat: 51.5024, lng: -0.1222 },
+  { category: "Things to Do", name: "Harry Potter Studio Tour", address: "Studio Tour Dr, Leavesden WD25 7LR", lat: 51.6903, lng: -0.4199 },
+  { category: "Things to Do", name: "Tokyo DisneySea", address: "1-13 Maihama, Urayasu, Chiba", lat: 35.6270, lng: 139.8824 },
+  { category: "Things to Do", name: "Mt. Fuji Day Trip", address: "Fujisan, Fujiyoshida, Yamanashi", lat: 35.3606, lng: 138.7274 },
+  { category: "Things to Do", name: "Seine River Cruise Paris", address: "Port de la Bourdonnais, Paris 75007", lat: 48.8603, lng: 2.2917 },
+  { category: "Things to Do", name: "Versailles Palace Tour", address: "Place d'Armes, 78000 Versailles", lat: 48.8049, lng: 2.1204 },
   // Shopping
   { category: "Shopping", name: "Myeongdong Shopping Street", address: "Myeongdong, Jung-gu, Seoul", lat: 37.5630, lng: 126.9850 },
   { category: "Shopping", name: "COEX Mall", address: "513 Yeongdong-daero, Gangnam-gu, Seoul", lat: 37.5115, lng: 127.0592 },
@@ -847,7 +847,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             period: fabPeriod || undefined,
             noteBody: fabOthersNote.trim() || undefined,
-            ...((fabCategory.label === "Activity" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           };
         }),
@@ -869,7 +869,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             ...(fabPeriod ? { period: fabPeriod } : {}),
             ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
-            ...((fabCategory.label === "Activity" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           },
         ],
@@ -1779,8 +1779,8 @@ export default function TripDetailPage() {
                   </div>
                 </div>
 
-                {/* Activity / Transport sub-type selector */}
-                {(fabCategory.label === "Activity" || fabCategory.label === "Transport") && (
+                {/* Things to Do / Transport sub-type selector */}
+                {(fabCategory.label === "Things to Do" || fabCategory.label === "Transport") && (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {(fabCategory.label === "Transport"
