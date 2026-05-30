@@ -654,7 +654,6 @@ export default function TripDetailPage() {
   const [budgetSubcategory, setBudgetSubcategory] = useState(BUDGET_CATEGORY_MAP[BUDGET_PARENT_CATEGORIES[0]][0]);
   const [budgetDay, setBudgetDay] = useState("");
   const [budgetCurrency, setBudgetCurrency] = useState("USD");
-  const [budgetIsPaid, setBudgetIsPaid] = useState(true);
 
   // Persistent detail data
   const [notesByDay, setNotesByDay] = useState<Record<number, string>>(detail.notesByDay ?? {});
@@ -692,8 +691,6 @@ export default function TripDetailPage() {
   }, [tripStart, tripEnd]);
 
   const totalBudget = budgetItems.reduce((sum, item) => sum + item.amount, 0);
-  const paidTotal = budgetItems.filter((b) => b.isPaid).reduce((s, b) => s + b.amount, 0);
-  const remainingTotal = totalBudget - paidTotal;
   const dayPlaces = placesByDay[currentDayIndex] ?? [];
   const noteText = notesByDay[currentDayIndex] ?? "";
 
@@ -1141,11 +1138,10 @@ export default function TripDetailPage() {
     if (!amount || !budgetDay) return;
     setBudgetItems((prev) => [
       ...prev,
-      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: budgetDay, currencyCode: budgetCurrency, isPaid: budgetIsPaid },
+      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: budgetDay, currencyCode: budgetCurrency },
     ]);
     setBudgetAmount("");
     setBudgetDay("");
-    setBudgetIsPaid(true);
     const subs = BUDGET_CATEGORY_MAP[budgetCategory];
     setBudgetSubcategory(subs.length > 0 ? subs[0] : "");
   };
@@ -1969,17 +1965,9 @@ export default function TripDetailPage() {
             ) : (
               <>
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
-                  <div className="space-y-1">
-                    <div>
-                      <p className="text-xs opacity-80">Spent</p>
-                      <p className="text-2xl font-bold">{getCurrencySymbol(budgetCurrency)}{paidTotal.toLocaleString()}</p>
-                    </div>
-                    {remainingTotal > 0 && (
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-xs opacity-80">Unpaid</p>
-                        <p className="text-sm font-medium">{getCurrencySymbol(budgetCurrency)}{remainingTotal.toLocaleString()}</p>
-                      </div>
-                    )}
+                  <div>
+                    <p className="text-xs opacity-80">Total</p>
+                    <p className="text-2xl font-bold">{getCurrencySymbol(budgetCurrency)}{totalBudget.toLocaleString()}</p>
                   </div>
                   <button type="button" onClick={() => setShowStats(true)}
                     className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 transition-colors"
@@ -1993,12 +1981,6 @@ export default function TripDetailPage() {
                     <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
                       <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory} · {item.date}</p>
                       <div className="flex items-center gap-2">
-                        <span className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                          item.isPaid ? "bg-[#2d6a4f]/15 text-[#2d6a4f]" : "bg-[--color-border] text-[--color-text-muted]",
-                        ].join(" ")}>
-                          {item.isPaid ? "Paid" : "Planned"}
-                        </span>
                         <p className="font-medium text-[--color-text]">{item.currencyCode ?? "USD"} {item.amount.toLocaleString()}</p>
                       </div>
                     </div>
@@ -2050,15 +2032,6 @@ export default function TripDetailPage() {
                         <option key={idx} value={`Day ${idx + 1}`}>Day {idx + 1}</option>
                       ))}
                     </select>
-                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[--color-text-muted]">
-                      <input
-                        type="checkbox"
-                        checked={budgetIsPaid}
-                        onChange={(e) => setBudgetIsPaid(e.target.checked)}
-                        className="h-3.5 w-3.5 accent-[#2d6a4f]"
-                      />
-                      Already paid
-                    </label>
                     <button
                       type="button"
                       onClick={addBudgetItem}
