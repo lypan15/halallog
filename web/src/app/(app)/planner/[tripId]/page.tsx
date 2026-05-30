@@ -535,16 +535,6 @@ function buildTimeline(
     }
   }
 
-  for (const t of info.transports) {
-    add(t.date, {
-      id: t.id, time: t.time, icon: TRANSPORT_ICON_MAP[t.type] ?? "🚌",
-      line1: [t.from, t.to].filter(Boolean).join(" → ") || t.type,
-      line2: t.type || undefined,
-      itemType: "transport",
-      sourceId: t.id,
-    });
-  }
-
   // Merge Day Plan items into the timeline grouped by their actual date
   for (const [dayIdxStr, places] of Object.entries(placesByDay)) {
     const dayIdx = Number(dayIdxStr);
@@ -604,14 +594,12 @@ export default function TripDetailPage() {
 
   // Most Used
   const [essentialInfo, setEssentialInfo] = useState<EssentialInfo>(
-    detail.essentialInfo ?? { flights: [], stays: [], transports: [] }
+    detail.essentialInfo ?? { flights: [], stays: [] }
   );
   const [showFlightForm, setShowFlightForm] = useState(false);
   const [showStayForm, setShowStayForm] = useState(false);
-  const [showTransportForm, setShowTransportForm] = useState(false);
   const [draftFlight, setDraftFlight] = useState(emptyFlight());
   const [draftStay, setDraftStay] = useState(emptyStay());
-  const [draftTransport, setDraftTransport] = useState(emptyTransport());
   const [airlineSearch, setAirlineSearch] = useState("");
   const [airlineDropdownOpen, setAirlineDropdownOpen] = useState(false);
   const [flightIataPrefix, setFlightIataPrefix] = useState("");
@@ -629,7 +617,6 @@ export default function TripDetailPage() {
   const [stayPriceCurrency, setStayPriceCurrency] = useState("USD");
   const [nightsPopupOpen, setNightsPopupOpen] = useState(false);
   const [nightsInput, setNightsInput] = useState("1");
-  const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
   const [returnToSummaryAfterEdit, setReturnToSummaryAfterEdit] = useState(false);
   const [summaryConfirmDelete, setSummaryConfirmDelete] = useState<TimelineItem | null>(null);
@@ -782,7 +769,6 @@ export default function TripDetailPage() {
       setFlightPriceCurrency(f.priceCurrency ?? "USD");
       setShowFlightForm(true);
       setShowStayForm(false);
-      setShowTransportForm(false);
       setReturnToSummaryAfterEdit(true);
       setActiveTab("essential");
     } else if (item.itemType === "stay") {
@@ -794,18 +780,6 @@ export default function TripDetailPage() {
       setEditingStayId(id);
       setShowStayForm(true);
       setShowFlightForm(false);
-      setShowTransportForm(false);
-      setReturnToSummaryAfterEdit(true);
-      setActiveTab("essential");
-    } else if (item.itemType === "transport") {
-      const transport = essentialInfo.transports.find((t) => t.id === item.sourceId);
-      if (!transport) return;
-      const { id, ...fields } = transport;
-      setDraftTransport(fields);
-      setEditingTransportId(id);
-      setShowTransportForm(true);
-      setShowFlightForm(false);
-      setShowStayForm(false);
       setReturnToSummaryAfterEdit(true);
       setActiveTab("essential");
     } else if (item.itemType === "dayplan" && item.dayIndex !== undefined) {
@@ -840,8 +814,6 @@ export default function TripDetailPage() {
       deleteFlight(item.sourceId);
     } else if (item.itemType === "stay") {
       deleteStay(item.sourceId);
-    } else if (item.itemType === "transport") {
-      deleteTransport(item.sourceId);
     } else if (item.itemType === "dayplan" && item.dayIndex !== undefined) {
       setPlacesByDay((prev) => ({
         ...prev,
@@ -1091,23 +1063,6 @@ export default function TripDetailPage() {
       setActiveTab("summary");
     }
   };
-  const saveTransport = () => {
-    if (editingTransportId) {
-      setEssentialInfo((prev) => ({
-        ...prev,
-        transports: prev.transports.map((t) => t.id === editingTransportId ? { id: t.id, ...draftTransport } : t),
-      }));
-      setEditingTransportId(null);
-    } else {
-      setEssentialInfo((prev) => ({ ...prev, transports: [...prev.transports, { id: `${Date.now()}`, ...draftTransport }] }));
-    }
-    setDraftTransport(emptyTransport());
-    setShowTransportForm(false);
-    if (returnToSummaryAfterEdit) {
-      setReturnToSummaryAfterEdit(false);
-      setActiveTab("summary");
-    }
-  };
   const deleteFlight = (id: string) => {
     setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
     setBudgetItems((prev) => prev.filter((b) => b.id !== `f-${id}`));
@@ -1116,7 +1071,6 @@ export default function TripDetailPage() {
     setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
     setBudgetItems((prev) => prev.filter((b) => b.id !== `s-${id}`));
   };
-  const deleteTransport = (id: string) => setEssentialInfo((prev) => ({ ...prev, transports: prev.transports.filter((t) => t.id !== id) }));
 
   const toggleChecklist = (section: "essential" | "packing" | "quick", id: string) => {
     setChecklistSections((prev) => ({
@@ -1290,9 +1244,8 @@ export default function TripDetailPage() {
         {activeTab === "essential" && (
           <div className="space-y-5">
             <div className="flex gap-2">
-              {[["+ Flight", () => { setShowFlightForm(true); setShowStayForm(false); setShowTransportForm(false); }],
-                ["+ Stay", () => { setShowStayForm(true); setShowFlightForm(false); setShowTransportForm(false); }],
-                ["+ Transport", () => { setShowTransportForm(true); setShowFlightForm(false); setShowStayForm(false); }],
+              {[["+ Flight", () => { setShowFlightForm(true); setShowStayForm(false); }],
+                ["+ Stay", () => { setShowStayForm(true); setShowFlightForm(false); }],
               ].map(([label, handler]) => (
                 <button key={label as string} type="button" onClick={handler as () => void}
                   className="rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm font-medium text-[--color-text] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors"
@@ -1572,7 +1525,6 @@ export default function TripDetailPage() {
                           setFlightPriceCurrency(f.priceCurrency ?? "USD");
                           setShowFlightForm(true);
                           setShowStayForm(false);
-                          setShowTransportForm(false);
                         }}
                         className="text-xs text-[#2d6a4f] hover:underline"
                       >
@@ -1722,7 +1674,6 @@ export default function TripDetailPage() {
                           setEditingStayId(s.id);
                           setShowStayForm(true);
                           setShowFlightForm(false);
-                          setShowTransportForm(false);
                         }}
                         className="text-xs text-[#2d6a4f] hover:underline"
                       >
@@ -1738,68 +1689,9 @@ export default function TripDetailPage() {
               </div>
             )}
 
-            {/* Transport form */}
-            {showTransportForm && (
-              <div className="space-y-3 rounded-xl border border-[--color-border] bg-[--color-background] p-4">
-                <p className="font-medium text-[--color-text]">🚌 Transport Details</p>
-                <div className="flex flex-wrap gap-2">
-                  {TRANSPORT_TYPES.map((t) => (
-                    <button key={t.type} type="button" onClick={() => setDraftTransport((p) => ({ ...p, type: t.type }))}
-                      className={["rounded-lg border px-3 py-1.5 text-sm transition-colors", draftTransport.type === t.type ? "border-[#2d6a4f] bg-[#2d6a4f] text-white" : "border-[--color-border] text-[--color-text-muted]"].join(" ")}
-                    >{t.icon} {t.type}</button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[["From", "from", "text"], ["To", "to", "text"], ["Date", "date", "date"], ["Time", "time", "time"]].map(([lbl, key, type]) => (
-                    <div key={key}>
-                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
-                      <input type={type} value={(draftTransport as never)[key]} onChange={(e) => setDraftTransport((p) => ({ ...p, [key]: e.target.value }))} placeholder={type === "text" ? "City / Station" : undefined} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={saveTransport} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
-                  <button type="button" onClick={() => { setShowTransportForm(false); setDraftTransport(emptyTransport()); }} className="rounded-lg border border-[--color-border] px-4 py-2 text-sm text-[--color-text-muted]">Cancel</button>
-                </div>
-              </div>
-            )}
-
-            {essentialInfo.transports.length > 0 && (
-              <div className="space-y-2">
-                {essentialInfo.transports.map((t) => (
-                  <div key={t.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[--color-text]">{TRANSPORT_ICON_MAP[t.type] ?? "🚌"} {[t.from, t.to].filter(Boolean).join(" → ") || t.type}</p>
-                      {t.date && <p className="text-xs text-[--color-text-muted]">{t.date} {formatTime12h(t.time)}</p>}
-                    </div>
-                    <div className="ml-2 flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const { id, ...fields } = t;
-                          setDraftTransport(fields);
-                          setEditingTransportId(id);
-                          setShowTransportForm(true);
-                          setShowFlightForm(false);
-                          setShowStayForm(false);
-                        }}
-                        className="text-xs text-[#2d6a4f] hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => deleteTransport(t.id)} className="text-xs text-[#c4704a]">✕</button>
-                    </div>
-                  </div>
-                ))}
-                {!showTransportForm && (
-                  <button type="button" onClick={() => setShowTransportForm(true)} className="w-full rounded-lg border border-dashed border-[--color-border] py-2 text-xs text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">+ Add Another Transport</button>
-                )}
-              </div>
-            )}
-
-            {!showFlightForm && !showStayForm && !showTransportForm &&
-              essentialInfo.flights.length === 0 && essentialInfo.stays.length === 0 && essentialInfo.transports.length === 0 && (
-                <p className="text-center text-sm text-[--color-text-muted]">Add your flights, stays, and transport to build your timeline.</p>
+            {!showFlightForm && !showStayForm &&
+              essentialInfo.flights.length === 0 && essentialInfo.stays.length === 0 && (
+                <p className="text-center text-sm text-[--color-text-muted]">Add your flights and stays to build your timeline.</p>
             )}
           </div>
         )}
