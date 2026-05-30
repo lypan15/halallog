@@ -50,7 +50,7 @@ const TRIP_TABS: Array<{ id: TripTab; label: string }> = [
   { id: "summary", label: "Summary" },
   { id: "essential", label: "Most Used" },
   { id: "day_plan", label: "Day Plan" },
-  { id: "budget", label: "Budget" },
+  { id: "budget", label: "Cost" },
   { id: "checklist", label: "Checklist" },
 ];
 
@@ -640,7 +640,6 @@ export default function TripDetailPage() {
   const [fabPeriod, setFabPeriod] = useState("");
   const [fabOthersNote, setFabOthersNote] = useState("");
   const [fabActivitySubType, setFabActivitySubType] = useState("Activity");
-  const [fabCustomSubType, setFabCustomSubType] = useState("");
   const [fabPriceInput, setFabPriceInput] = useState("");
   const [fabPriceCurrency, setFabPriceCurrency] = useState("USD");
   const [fabLatLng, setFabLatLng] = useState<{ address: string; lat: number; lng: number } | null>(null);
@@ -655,7 +654,7 @@ export default function TripDetailPage() {
   const [budgetSubcategory, setBudgetSubcategory] = useState(BUDGET_CATEGORY_MAP[BUDGET_PARENT_CATEGORIES[0]][0]);
   const [budgetDay, setBudgetDay] = useState("");
   const [budgetCurrency, setBudgetCurrency] = useState("USD");
-  const [budgetIsPaid, setBudgetIsPaid] = useState(false);
+  const [budgetIsPaid, setBudgetIsPaid] = useState(true);
 
   // Persistent detail data
   const [notesByDay, setNotesByDay] = useState<Record<number, string>>(detail.notesByDay ?? {});
@@ -804,14 +803,7 @@ export default function TripDetailPage() {
       setFabInput(place.name);
       setFabPeriod(place.period ?? "");
       setFabOthersNote(place.noteBody ?? "");
-      const storedSubType = place.subType ?? "Activity";
-      if (["Tour", "Activity", "Experience", "Class"].includes(storedSubType)) {
-        setFabActivitySubType(storedSubType);
-        setFabCustomSubType("");
-      } else {
-        setFabActivitySubType("Custom");
-        setFabCustomSubType(storedSubType);
-      }
+      setFabActivitySubType(place.subType ?? "Activity");
       setFabPriceInput(place.price !== undefined ? String(place.price) : "");
       setFabPriceCurrency(place.priceCurrency ?? "USD");
       setFabLatLng(place.lat !== undefined ? { address: place.address ?? "", lat: place.lat, lng: place.lng ?? 0 } : null);
@@ -856,9 +848,7 @@ export default function TripDetailPage() {
       return;
     }
 
-    const resolvedSubType = fabActivitySubType === "Custom"
-      ? (fabCustomSubType.trim() || defaultSubType(fabCategory.label))
-      : fabActivitySubType;
+    const resolvedSubType = fabActivitySubType;
 
     const numFabPrice = parseFloat(fabPriceInput);
     const hasFabPrice = fabCategory.label !== "Prayer Space" && isFinite(numFabPrice) && numFabPrice > 0;
@@ -949,7 +939,6 @@ export default function TripDetailPage() {
     setFabPeriod("");
     setFabOthersNote("");
     setFabActivitySubType("Activity");
-    setFabCustomSubType("");
     setFabPriceInput("");
     setFabPriceCurrency("USD");
     setFabLatLng(null);
@@ -1156,7 +1145,7 @@ export default function TripDetailPage() {
     ]);
     setBudgetAmount("");
     setBudgetDay("");
-    setBudgetIsPaid(false);
+    setBudgetIsPaid(true);
     const subs = BUDGET_CATEGORY_MAP[budgetCategory];
     setBudgetSubcategory(subs.length > 0 ? subs[0] : "");
   };
@@ -1872,14 +1861,6 @@ export default function TripDetailPage() {
                         >{sub}</button>
                       ))}
                     </div>
-                    {fabActivitySubType === "Custom" && (
-                      <input
-                        value={fabCustomSubType}
-                        onChange={(e) => setFabCustomSubType(e.target.value)}
-                        placeholder="Enter sub-type..."
-                        className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
-                      />
-                    )}
                   </div>
                 )}
 
@@ -1935,7 +1916,7 @@ export default function TripDetailPage() {
 
                 <div className="flex gap-2">
                   <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">{editingPlaceId ? "Save" : "Add"}</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabCustomSubType(""); setFabPriceInput(""); setFabPriceCurrency("USD"); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabPriceInput(""); setFabPriceCurrency("USD"); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
                 </div>
               </div>
             )}
@@ -1989,18 +1970,16 @@ export default function TripDetailPage() {
               <>
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
                   <div className="space-y-1">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-xs opacity-80">Total Planned</p>
-                      <p className="text-base font-semibold">{getCurrencySymbol(budgetCurrency)}{totalBudget.toLocaleString()}</p>
+                    <div>
+                      <p className="text-xs opacity-80">Spent</p>
+                      <p className="text-2xl font-bold">{getCurrencySymbol(budgetCurrency)}{paidTotal.toLocaleString()}</p>
                     </div>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-xs opacity-80">Already Paid</p>
-                      <p className="text-base font-semibold">{getCurrencySymbol(budgetCurrency)}{paidTotal.toLocaleString()}</p>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-xs opacity-80">Remaining</p>
-                      <p className="text-base font-semibold">{getCurrencySymbol(budgetCurrency)}{remainingTotal.toLocaleString()}</p>
-                    </div>
+                    {remainingTotal > 0 && (
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-xs opacity-80">Unpaid</p>
+                        <p className="text-sm font-medium">{getCurrencySymbol(budgetCurrency)}{remainingTotal.toLocaleString()}</p>
+                      </div>
+                    )}
                   </div>
                   <button type="button" onClick={() => setShowStats(true)}
                     className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 transition-colors"
@@ -2287,6 +2266,9 @@ function SortablePlaceCard({
           </div>
         )}
       </div>
+      {place.price !== undefined && (
+        <p className="shrink-0 text-xs font-medium text-[--color-text]">{place.priceCurrency ?? "USD"} {place.price.toLocaleString()}</p>
+      )}
       <button type="button" onClick={() => onRemove(place.id)} className="shrink-0 text-sm text-[--color-text-muted] hover:text-[#c4704a]">✕</button>
     </div>
   );
@@ -2332,7 +2314,7 @@ function BudgetStats({ items, total, currency, onBack }: { items: BudgetItem[]; 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onBack} className="rounded-lg border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">← Budget</button>
+        <button type="button" onClick={onBack} className="rounded-lg border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">← Cost</button>
         <p className="font-semibold text-[--color-text]">Spending by Category</p>
       </div>
 
