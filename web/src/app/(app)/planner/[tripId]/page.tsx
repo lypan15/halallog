@@ -473,6 +473,13 @@ function getPeriodOptions(categoryLabel: string): string[] {
   return [];
 }
 
+// Default sub-type (first chip) for a category that has a sub-type selector.
+function defaultSubType(categoryLabel: string): string {
+  if (categoryLabel === "Transport") return "Train";
+  if (categoryLabel === "Food") return "Restaurant";
+  return "Activity"; // Things to Do
+}
+
 type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string; itemType: "flight" | "stay" | "transport" | "dayplan"; sourceId: string; dayIndex?: number };
 type TimelineGroup = { date: string; dateLabel: string; items: TimelineItem[] };
 
@@ -831,7 +838,7 @@ export default function TripDetailPage() {
     }
 
     const resolvedSubType = fabActivitySubType === "Custom"
-      ? (fabCustomSubType.trim() || (fabCategory.label === "Transport" ? "Train" : "Activity"))
+      ? (fabCustomSubType.trim() || defaultSubType(fabCategory.label))
       : fabActivitySubType;
 
     if (editingPlaceId !== null) {
@@ -846,7 +853,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             period: fabPeriod || undefined,
             noteBody: fabOthersNote.trim() || undefined,
-            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           };
         }),
@@ -868,7 +875,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             ...(fabPeriod ? { period: fabPeriod } : {}),
             ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
-            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           },
         ],
@@ -1719,7 +1726,7 @@ export default function TripDetailPage() {
                     setFabInput("");
                     setFabPeriod("");
                     setFabOthersNote("");
-                    setFabActivitySubType(cat.label === "Transport" ? "Train" : "Activity");
+                    setFabActivitySubType(defaultSubType(cat.label));
                     setFabLatLng(null);
                     setFabLocationDropdownOpen(false);
                   }}
@@ -1778,12 +1785,14 @@ export default function TripDetailPage() {
                   </div>
                 </div>
 
-                {/* Things to Do / Transport sub-type selector */}
-                {(fabCategory.label === "Things to Do" || fabCategory.label === "Transport") && (
+                {/* Things to Do / Transport / Food sub-type selector */}
+                {(fabCategory.label === "Things to Do" || fabCategory.label === "Transport" || fabCategory.label === "Food") && (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {(fabCategory.label === "Transport"
                         ? [...TRANSPORT_TYPES.map((t) => t.type), "Custom"]
+                        : fabCategory.label === "Food"
+                        ? ["Restaurant", "Café & Beverage", "Convenience Store", "Snacks", "Groceries", "Custom"]
                         : ["Tour", "Activity", "Experience", "Class", "Custom"]
                       ).map((sub) => (
                         <button
