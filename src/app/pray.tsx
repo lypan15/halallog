@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Coordinates, CalculationMethod, Madhab, PrayerTimes as AdhanPrayerTimes } from 'adhan';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,15 +31,82 @@ const PRAYER_LABELS: Record<PrayerName, string> = {
 const PRAYER_KEYS = Object.keys(PRAYER_LABELS) as PrayerName[];
 const PRESET_MINUTES = [5, 10, 15, 30] as const;
 
+const MECCA = { lat: 21.3891, lng: 39.8579 };
+
+interface PrayTimeState {
+  fajr: string;
+  dhuhr: string;
+  asr: string;
+  maghrib: string;
+  isha: string;
+}
+
+function fmtTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export default function PrayScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
 
   const [customTarget, setCustomTarget] = useState<PrayerName | null>(null);
   const [customInput, setCustomInput] = useState('');
+  const [prayTimes, setPrayTimes] = useState<PrayTimeState | null>(null);
+  const [locationLabel, setLocationLabel] = useState('');
 
   const { masterEnabled, prayers, setMasterEnabled, setPrayerEnabled, toggleMinute } =
     useNotificationStore();
+
+  // ── Prayer times: GPS → adhan calculation ─────────────────────────────
+  useEffect(() => {
+    const computeTimes = (lat: number, lng: number, label: string) => {
+      try {
+        const coords = new Coordinates(lat, lng);
+        const params = CalculationMethod.MuslimWorldLeague();
+        params.madhab = Madhab.Shafi;
+        const times = new AdhanPrayerTimes(coords, new Date(), params);
+        setPrayTimes({
+          fajr: fmtTime(times.fajr),
+          dhuhr: fmtTime(times.dhuhr),
+          asr: fmtTime(times.asr),
+          maghrib: fmtTime(times.maghrib),
+          isha: fmtTime(times.isha),
+        });
+        setLocationLabel(label);
+      } catch {
+        // ignore calculation errors for edge coordinates
+      }
+    };
+
+    const fallback = () => computeTimes(MECCA.lat, MECCA.lng, 'Mecca (test)');
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => computeTimes(pos.coords.latitude, pos.coords.longitude, 'Current Location'),
+        fallback,
+        { timeout: 5000, enableHighAccuracy: false },
+      );
+    } else {
+      fallback();
+    }
+  }, []);
+
+  // ── Notification toggle: always clickable, auto-sync master ────────────
+  const handlePrayerToggle = (prayerName: PrayerName) => {
+    const newEnabled = !prayers[prayerName].enabled;
+    setPrayerEnabled(prayerName, newEnabled);
+
+    if (newEnabled) {
+      // Any prayer turned ON → master ON
+      setMasterEnabled(true);
+    } else {
+      // All prayers OFF → master OFF
+      const allWillBeOff = PRAYER_KEYS.every(
+        (k) => k === prayerName || !prayers[k].enabled,
+      );
+      if (allWillBeOff) setMasterEnabled(false);
+    }
+  };
 
   const openCustomModal = (prayer: PrayerName) => {
     setCustomInput('');
@@ -78,6 +146,37 @@ export default function PrayScreen() {
             Pray
           </ThemedText>
 
+          {/* Today's Prayer Times */}
+          {prayTimes && (
+            <ThemedView type="backgroundElement" style={styles.card}>
+              <View style={[styles.row, styles.timesHeader]}>
+                <ThemedText type="default" style={styles.masterLabel}>
+                  Today's Prayer Times
+                </ThemedText>
+              </View>
+              {locationLabel ? (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.locationLabel}>
+                  {locationLabel}
+                </ThemedText>
+              ) : null}
+              {PRAYER_KEYS.map((prayer, index) => (
+                <View key={prayer}>
+                  {index > 0 && (
+                    <View
+                      style={[styles.separator, { backgroundColor: theme.backgroundSelected }]}
+                    />
+                  )}
+                  <View style={styles.row}>
+                    <ThemedText type="default">{PRAYER_LABELS[prayer]}</ThemedText>
+                    <ThemedText type="default" style={styles.timeValue}>
+                      {prayTimes[prayer]}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </ThemedView>
+          )}
+
           {/* Master toggle */}
           <ThemedView type="backgroundElement" style={styles.card}>
             <View style={styles.row}>
@@ -93,16 +192,13 @@ export default function PrayScreen() {
             </View>
           </ThemedView>
 
-          {/* Prayer rows */}
+          {/* Pray notification rows */}
           <ThemedView type="backgroundElement" style={styles.prayerCard}>
             {PRAYER_KEYS.map((prayer, index) => {
               const setting = prayers[prayer];
-              // Visually OFF when master is off; real state shown when master is on
-              const displayValue = masterEnabled ? setting.enabled : false;
-              // Chips only active when master ON and this prayer ON
               const showChips = masterEnabled && setting.enabled;
               const customMinutes = setting.selectedMinutes.filter(
-                (m) => !(PRESET_MINUTES as readonly number[]).includes(m)
+                (m) => !(PRESET_MINUTES as readonly number[]).includes(m),
               );
 
               return (
@@ -116,8 +212,8 @@ export default function PrayScreen() {
                   <View style={[styles.row, styles.prayerRow]}>
                     <ThemedText type="default">{PRAYER_LABELS[prayer]}</ThemedText>
                     <Switch
-                      value={displayValue}
-                      onValueChange={() => setPrayerEnabled(prayer, !setting.enabled)}
+                      value={setting.enabled}
+                      onValueChange={() => handlePrayerToggle(prayer)}
                       trackColor={{ true: '#22c55e', false: theme.backgroundSelected }}
                       thumbColor={Platform.OS === 'android' ? '#ffffff' : undefined}
                     />
@@ -238,6 +334,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
     overflow: 'hidden',
   },
+  timesHeader: { paddingBottom: 0 },
+  locationLabel: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  timeValue: { fontWeight: '600' },
   prayerCard: {
     borderRadius: Spacing.three,
     overflow: 'hidden',
