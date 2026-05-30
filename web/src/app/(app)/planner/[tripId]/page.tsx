@@ -218,6 +218,38 @@ const AIRLINES: { name: string; iata: string }[] = [
   { name: "Copa Airlines", iata: "CM" },
 ];
 
+const AIRPORTS: { iata: string; city: string }[] = [
+  { iata: "ICN", city: "Incheon" },
+  { iata: "GMP", city: "Gimpo" },
+  { iata: "NRT", city: "Tokyo Narita" },
+  { iata: "HND", city: "Tokyo Haneda" },
+  { iata: "KIX", city: "Osaka" },
+  { iata: "HKG", city: "Hong Kong" },
+  { iata: "SIN", city: "Singapore" },
+  { iata: "DXB", city: "Dubai" },
+  { iata: "DOH", city: "Doha" },
+  { iata: "AUH", city: "Abu Dhabi" },
+  { iata: "IST", city: "Istanbul" },
+  { iata: "KUL", city: "Kuala Lumpur" },
+  { iata: "BKK", city: "Bangkok" },
+  { iata: "CDG", city: "Paris" },
+  { iata: "LHR", city: "London" },
+  { iata: "JFK", city: "New York" },
+  { iata: "LAX", city: "Los Angeles" },
+  { iata: "SYD", city: "Sydney" },
+  { iata: "CAI", city: "Cairo" },
+  { iata: "AMM", city: "Amman" },
+  { iata: "RUH", city: "Riyadh" },
+  { iata: "JED", city: "Jeddah" },
+  { iata: "MED", city: "Medina" },
+  { iata: "KHI", city: "Karachi" },
+  { iata: "DAC", city: "Dhaka" },
+];
+
+function airportLabel(iata: string): string {
+  const a = AIRPORTS.find((x) => x.iata === iata);
+  return a ? `${a.city} (${a.iata})` : iata;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function fmtDayTab(d: Date) {
@@ -232,6 +264,19 @@ function formatDayHeader(dateStr: string): string {
 
 function getCategoryIcon(cat: string): string {
   return cat.split(" ")[0] ?? "";
+}
+
+function calcFlightDuration(dep: string, arr: string): string | null {
+  const [dh, dm] = dep.split(":").map(Number);
+  const [ah, am] = arr.split(":").map(Number);
+  if ([dh, dm, ah, am].some(isNaN)) return null;
+  const depMins = dh * 60 + dm;
+  let arrMins = ah * 60 + am;
+  if (arrMins <= depMins) arrMins += 1440; // next-day arrival
+  const diff = arrMins - depMins;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function getPeriodOptions(categoryLabel: string): string[] {
@@ -338,6 +383,12 @@ export default function TripDetailPage() {
   const [flightIataPrefix, setFlightIataPrefix] = useState("");
   const [flightNumberSuffix, setFlightNumberSuffix] = useState("");
   const [flightDbDropdownOpen, setFlightDbDropdownOpen] = useState(false);
+  const [fromSearch, setFromSearch] = useState("");
+  const [fromDropdownOpen, setFromDropdownOpen] = useState(false);
+  const [toSearch, setToSearch] = useState("");
+  const [toDropdownOpen, setToDropdownOpen] = useState(false);
+  const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [flightPriceInput, setFlightPriceInput] = useState("");
 
   // Day Plan quick-add
   const [memoFocused, setMemoFocused] = useState(false);
@@ -429,6 +480,12 @@ export default function TripDetailPage() {
       setFlightIataPrefix("");
       setFlightNumberSuffix("");
       setFlightDbDropdownOpen(false);
+      setFromSearch("");
+      setFromDropdownOpen(false);
+      setToSearch("");
+      setToDropdownOpen(false);
+      setEditingFlightId(null);
+      setFlightPriceInput("");
     }
   }, [showFlightForm]);
 
@@ -516,7 +573,37 @@ export default function TripDetailPage() {
   };
 
   const saveFlight = () => {
-    setEssentialInfo((prev) => ({ ...prev, flights: [...prev.flights, { id: `${Date.now()}`, ...draftFlight }] }));
+    const numPrice = parseFloat(flightPriceInput);
+    const hasPrice = isFinite(numPrice) && numPrice > 0;
+    const flightData = { ...draftFlight, ...(hasPrice ? { price: numPrice } : {}) };
+
+    if (editingFlightId) {
+      setEssentialInfo((prev) => ({
+        ...prev,
+        flights: prev.flights.map((f) =>
+          f.id === editingFlightId ? { id: f.id, ...flightData } : f
+        ),
+      }));
+    } else {
+      setEssentialInfo((prev) => ({
+        ...prev,
+        flights: [...prev.flights, { id: `${Date.now()}`, ...flightData }],
+      }));
+      if (hasPrice) {
+        setBudgetItems((prev) => [
+          ...prev,
+          {
+            id: `f-${Date.now()}`,
+            category: "🚌 Transport",
+            subcategory: "Flight",
+            amount: numPrice,
+            date: draftFlight.departureDate || "",
+            currencyCode: budgetCurrency,
+          },
+        ]);
+      }
+    }
+
     setDraftFlight(emptyFlight());
     setShowFlightForm(false);
   };
@@ -565,6 +652,22 @@ export default function TripDetailPage() {
           a.name.toLowerCase().includes(airlineSearch.toLowerCase()) ||
           a.iata.toLowerCase().includes(airlineSearch.toLowerCase())
       ).slice(0, 8)
+    : [];
+
+  const filteredFromAirports = fromSearch.trim()
+    ? AIRPORTS.filter(
+        (a) =>
+          a.city.toLowerCase().includes(fromSearch.toLowerCase()) ||
+          a.iata.toLowerCase().includes(fromSearch.toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  const filteredToAirports = toSearch.trim()
+    ? AIRPORTS.filter(
+        (a) =>
+          a.city.toLowerCase().includes(toSearch.toLowerCase()) ||
+          a.iata.toLowerCase().includes(toSearch.toLowerCase())
+      ).slice(0, 6)
     : [];
 
   const fullFlightNumber = (flightIataPrefix + flightNumberSuffix).toUpperCase();
@@ -683,18 +786,88 @@ export default function TripDetailPage() {
               <div className="space-y-3 rounded-xl border border-[--color-border] bg-[--color-background] p-4">
                 <p className="font-medium text-[--color-text]">✈️ Flight Details</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {[["From", "from", "ICN"], ["To", "to", "NRT"]].map(([lbl, key, ph]) => (
-                    <div key={key}>
-                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
-                      <input value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} placeholder={ph} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                    </div>
-                  ))}
-                  {[["Departure date", "departureDate", "date"], ["Departure time", "departureTime", "time"], ["Arrival date", "arrivalDate", "date"], ["Arrival time", "arrivalTime", "time"]].map(([lbl, key, type]) => (
-                    <div key={key}>
-                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
-                      <input type={type} value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
-                    </div>
-                  ))}
+                  {/* From airport autocomplete */}
+                  <div className="relative">
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">From</label>
+                    <input
+                      value={fromSearch}
+                      onChange={(e) => { setFromSearch(e.target.value); setFromDropdownOpen(true); setDraftFlight((p) => ({ ...p, from: e.target.value })); }}
+                      onFocus={() => setFromDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setFromDropdownOpen(false), 150)}
+                      placeholder="ICN"
+                      autoComplete="off"
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                    {fromDropdownOpen && filteredFromAirports.length > 0 && (
+                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-44 overflow-y-auto rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                        {filteredFromAirports.map((a) => (
+                          <button key={a.iata} type="button"
+                            onMouseDown={() => { setFromSearch(`${a.city} (${a.iata})`); setDraftFlight((p) => ({ ...p, from: a.iata })); setFromDropdownOpen(false); }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-[--color-surface]">
+                            <span className="text-[--color-text]">{a.city}</span>
+                            <span className="text-xs font-semibold text-[--color-text-muted]">{a.iata}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* To airport autocomplete */}
+                  <div className="relative">
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">To</label>
+                    <input
+                      value={toSearch}
+                      onChange={(e) => { setToSearch(e.target.value); setToDropdownOpen(true); setDraftFlight((p) => ({ ...p, to: e.target.value })); }}
+                      onFocus={() => setToDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setToDropdownOpen(false), 150)}
+                      placeholder="NRT"
+                      autoComplete="off"
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                    {toDropdownOpen && filteredToAirports.length > 0 && (
+                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-44 overflow-y-auto rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                        {filteredToAirports.map((a) => (
+                          <button key={a.iata} type="button"
+                            onMouseDown={() => { setToSearch(`${a.city} (${a.iata})`); setDraftFlight((p) => ({ ...p, to: a.iata })); setToDropdownOpen(false); }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-[--color-surface]">
+                            <span className="text-[--color-text]">{a.city}</span>
+                            <span className="text-xs font-semibold text-[--color-text-muted]">{a.iata}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Departure date</label>
+                    <input type="date" value={draftFlight.departureDate}
+                      onChange={(e) => { const v = e.target.value; setDraftFlight((p) => ({ ...p, departureDate: v, arrivalDate: p.arrivalDate || v })); }}
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Departure time</label>
+                    <input type="time" value={draftFlight.departureTime}
+                      onChange={(e) => setDraftFlight((p) => ({ ...p, departureTime: e.target.value }))}
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Arrival date</label>
+                    <input type="date" value={draftFlight.arrivalDate}
+                      onChange={(e) => setDraftFlight((p) => ({ ...p, arrivalDate: e.target.value }))}
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Arrival time</label>
+                    <input type="time" value={draftFlight.arrivalTime}
+                      onChange={(e) => setDraftFlight((p) => ({ ...p, arrivalTime: e.target.value }))}
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  </div>
+                  {draftFlight.departureTime && draftFlight.arrivalTime && (() => {
+                    const dur = calcFlightDuration(draftFlight.departureTime, draftFlight.arrivalTime);
+                    return dur ? (
+                      <div className="col-span-2 rounded-lg bg-[--color-surface] px-3 py-1.5 text-xs text-[--color-text-muted]">
+                        ⏱ Flight duration: <span className="font-semibold text-[--color-text]">{dur}</span>
+                      </div>
+                    ) : null;
+                  })()}
                   {/* Airline autocomplete */}
                   <div className="relative">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Airline</label>
@@ -775,6 +948,8 @@ export default function TripDetailPage() {
                               setFlightIataPrefix(iata);
                               setFlightNumberSuffix(num);
                               setAirlineSearch(record.airline);
+                              setFromSearch(airportLabel(record.from));
+                              setToSearch(airportLabel(record.to));
                               setDraftFlight((p) => ({
                                 ...p,
                                 flightNumber: record.flightNumber,
@@ -799,6 +974,21 @@ export default function TripDetailPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                  {/* Price — auto-creates Budget entry on save */}
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Price (optional)</label>
+                    <div className="flex overflow-hidden rounded border border-[--color-border]">
+                      <span className="flex shrink-0 items-center border-r border-[--color-border] bg-[--color-surface] px-2 text-sm text-[--color-text-muted]">
+                        {getCurrencySymbol(budgetCurrency)}
+                      </span>
+                      <input
+                        value={flightPriceInput}
+                        onChange={(e) => setFlightPriceInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="0"
+                        className="w-full bg-transparent px-2 py-1.5 text-sm outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 border-t border-[--color-border] pt-2">
@@ -827,7 +1017,7 @@ export default function TripDetailPage() {
               <div className="space-y-2">
                 {essentialInfo.flights.map((f) => (
                   <div key={f.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[--color-text]">✈️ {[f.from, f.to].filter(Boolean).join(" → ") || "Flight"}</p>
                       {(f.flightNumber || f.airline) && (
                         <p className="text-xs text-[--color-text-muted]">
@@ -838,7 +1028,30 @@ export default function TripDetailPage() {
                       )}
                       {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {f.departureTime}{f.arrivalDate && f.arrivalDate !== f.departureDate ? ` → ${f.arrivalDate}` : ""} {f.arrivalTime}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteFlight(f.id)} className="text-xs text-[#c4704a]">✕</button>
+                    <div className="ml-2 flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const { id: _id, ...fields } = f;
+                          setDraftFlight(fields);
+                          setEditingFlightId(f.id);
+                          setAirlineSearch(f.airline);
+                          const m = f.flightNumber.match(/^([A-Z]+)(\d+)$/);
+                          setFlightIataPrefix(m?.[1] ?? "");
+                          setFlightNumberSuffix(m?.[2] ?? f.flightNumber);
+                          setFromSearch(airportLabel(f.from));
+                          setToSearch(airportLabel(f.to));
+                          setFlightPriceInput(f.price?.toString() ?? "");
+                          setShowFlightForm(true);
+                          setShowStayForm(false);
+                          setShowTransportForm(false);
+                        }}
+                        className="text-xs text-[#2d6a4f] hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => deleteFlight(f.id)} className="text-xs text-[#c4704a]">✕</button>
+                    </div>
                   </div>
                 ))}
                 {!showFlightForm && (

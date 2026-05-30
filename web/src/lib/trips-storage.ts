@@ -31,6 +31,7 @@ export type FlightItem = {
   airline: string;
   flightNumber: string;
   attachmentName?: string;
+  price?: number;
 };
 
 export type StayItem = {
