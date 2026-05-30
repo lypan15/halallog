@@ -61,10 +61,7 @@ const QUICK_ADD_CATEGORIES = [
   { label: "Prayer Space", icon: "🕌" },
   { label: "Activity", icon: "🎫" },
   { label: "Shopping", icon: "🛍️" },
-  { label: "Car Rental", icon: "🚗" },
-  { label: "Train", icon: "🚂" },
-  { label: "Bus", icon: "🚌" },
-  { label: "Ferry", icon: "⛴️" },
+  { label: "Transport", icon: "🚌" },
   { label: "Custom", icon: "📌" },
 ];
 
@@ -842,7 +839,7 @@ export default function TripDetailPage() {
     }
 
     const resolvedSubType = fabActivitySubType === "Custom"
-      ? (fabCustomSubType.trim() || "Activity")
+      ? (fabCustomSubType.trim() || (fabCategory.label === "Transport" ? "Train" : "Activity"))
       : fabActivitySubType;
 
     if (editingPlaceId !== null) {
@@ -857,7 +854,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             period: fabPeriod || undefined,
             noteBody: fabOthersNote.trim() || undefined,
-            ...(fabCategory.label === "Activity" ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Activity" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           };
         }),
@@ -879,7 +876,7 @@ export default function TripDetailPage() {
             icon: fabCategory.icon,
             ...(fabPeriod ? { period: fabPeriod } : {}),
             ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
-            ...(fabCategory.label === "Activity" ? { subType: resolvedSubType } : {}),
+            ...((fabCategory.label === "Activity" || fabCategory.label === "Transport") ? { subType: resolvedSubType } : {}),
             ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
           },
         ],
@@ -1730,7 +1727,7 @@ export default function TripDetailPage() {
                     setFabInput("");
                     setFabPeriod("");
                     setFabOthersNote("");
-                    setFabActivitySubType("Activity");
+                    setFabActivitySubType(cat.label === "Transport" ? "Train" : "Activity");
                     setFabLatLng(null);
                     setFabLocationDropdownOpen(false);
                   }}
@@ -1789,11 +1786,14 @@ export default function TripDetailPage() {
                   </div>
                 </div>
 
-                {/* Activity sub-type selector */}
-                {fabCategory.label === "Activity" && (
+                {/* Activity / Transport sub-type selector */}
+                {(fabCategory.label === "Activity" || fabCategory.label === "Transport") && (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {["Tour", "Activity", "Experience", "Class", "Custom"].map((sub) => (
+                      {(fabCategory.label === "Transport"
+                        ? [...TRANSPORT_TYPES.map((t) => t.type), "Custom"]
+                        : ["Tour", "Activity", "Experience", "Class", "Custom"]
+                      ).map((sub) => (
                         <button
                           key={sub}
                           type="button"
