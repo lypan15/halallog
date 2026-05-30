@@ -137,6 +137,152 @@ function getCurrencySymbol(code: string): string {
   return CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
 }
 
+const FLIGHT_PRICE_CURRENCIES = [
+  { code: "USD", symbol: "$" },
+  { code: "KRW", symbol: "₩" },
+  { code: "EUR", symbol: "€" },
+  { code: "GBP", symbol: "£" },
+  { code: "JPY", symbol: "¥" },
+  { code: "AED", symbol: "د.إ" },
+  { code: "SAR", symbol: "﷼" },
+  { code: "MYR", symbol: "RM" },
+  { code: "SGD", symbol: "S$" },
+  { code: "AUD", symbol: "A$" },
+  { code: "THB", symbol: "฿" },
+  { code: "TRY", symbol: "₺" },
+  { code: "QAR", symbol: "﷼" },
+  { code: "IDR", symbol: "Rp" },
+];
+
+const FAB_SEARCHABLE = ["Place", "Restaurant", "Prayer Space", "Activity", "Shopping"];
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  if ([h, m].some(isNaN)) return "";
+  const total = h * 60 + m + minutes;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function getValidationMessage(category: string): string {
+  const msgs: Record<string, string> = {
+    "Place": "Please enter a place name",
+    "Restaurant": "Please enter a restaurant name",
+    "Prayer Space": "Please enter a prayer space name",
+    "Activity": "Please enter a name",
+    "Shopping": "Please enter a store name",
+  };
+  return msgs[category] ?? "Please enter a name";
+}
+
+type MockLocation = { name: string; address: string; lat: number; lng: number; category: string };
+const MOCK_LOCATIONS: MockLocation[] = [
+  // Place
+  { category: "Place", name: "Gyeongbokgung Palace", address: "161 Sajik-ro, Jongno-gu, Seoul", lat: 37.5796, lng: 126.9770 },
+  { category: "Place", name: "N Seoul Tower", address: "105 Namsangongwon-gil, Yongsan-gu, Seoul", lat: 37.5512, lng: 126.9882 },
+  { category: "Place", name: "Bukchon Hanok Village", address: "Gyedong-gil, Jongno-gu, Seoul", lat: 37.5826, lng: 126.9849 },
+  { category: "Place", name: "Changdeokgung Palace", address: "99 Yulgok-ro, Jongno-gu, Seoul", lat: 37.5794, lng: 126.9910 },
+  { category: "Place", name: "Hagia Sophia", address: "Sultan Ahmet Meydanı, Fatih, Istanbul", lat: 41.0086, lng: 28.9802 },
+  { category: "Place", name: "Topkapi Palace", address: "Cankurtaran, 34122 Fatih, Istanbul", lat: 41.0115, lng: 28.9833 },
+  { category: "Place", name: "Galata Tower", address: "Galata, Büyük Hendek Cd. No:1, Istanbul", lat: 41.0256, lng: 28.9741 },
+  { category: "Place", name: "Bosphorus Viewpoint", address: "Rumeli Hisarı, Sarıyer, Istanbul", lat: 41.0890, lng: 29.0573 },
+  { category: "Place", name: "Burj Khalifa", address: "1 Sheikh Mohammed bin Rashid Blvd, Dubai", lat: 25.1972, lng: 55.2744 },
+  { category: "Place", name: "Dubai Frame", address: "Zabeel Park, Gate 4, Dubai", lat: 25.2350, lng: 55.3009 },
+  { category: "Place", name: "Palm Jumeirah", address: "Palm Jumeirah, Dubai", lat: 25.1124, lng: 55.1390 },
+  { category: "Place", name: "Petronas Twin Towers", address: "Kuala Lumpur City Centre, 50088 KL", lat: 3.1578, lng: 101.7119 },
+  { category: "Place", name: "Batu Caves", address: "Gombak, 68100 Batu Caves, Selangor", lat: 3.2379, lng: 101.6840 },
+  { category: "Place", name: "Gardens by the Bay", address: "18 Marina Gardens Dr, Singapore", lat: 1.2816, lng: 103.8636 },
+  { category: "Place", name: "Marina Bay Sands", address: "10 Bayfront Ave, Singapore", lat: 1.2834, lng: 103.8607 },
+  { category: "Place", name: "Senso-ji Temple", address: "2-3-1 Asakusa, Taito City, Tokyo", lat: 35.7148, lng: 139.7967 },
+  { category: "Place", name: "Shinjuku Gyoen", address: "11 Naitomachi, Shinjuku City, Tokyo", lat: 35.6851, lng: 139.7105 },
+  { category: "Place", name: "Tower of London", address: "St Katharine's & Wapping, London EC3N 4AB", lat: 51.5081, lng: -0.0759 },
+  { category: "Place", name: "Hyde Park", address: "Hyde Park, London W2 2UH", lat: 51.5073, lng: -0.1657 },
+  { category: "Place", name: "Eiffel Tower", address: "Champ de Mars, 5 Av. Anatole France, Paris", lat: 48.8584, lng: 2.2945 },
+  // Restaurant
+  { category: "Restaurant", name: "Itaewon Halal Food Street", address: "Itaewon-ro, Yongsan-gu, Seoul", lat: 37.5340, lng: 126.9944 },
+  { category: "Restaurant", name: "Makan Korean Halal", address: "12 Cheongpa-ro, Yongsan-gu, Seoul", lat: 37.5402, lng: 126.9657 },
+  { category: "Restaurant", name: "Hamdi Restaurant", address: "Kalçın Sk. No:17, Eminönü, Istanbul", lat: 41.0141, lng: 28.9716 },
+  { category: "Restaurant", name: "Hafız Mustafa", address: "Hamidiye Cd. No:84, Fatih, Istanbul", lat: 41.0168, lng: 28.9709 },
+  { category: "Restaurant", name: "Nusret Etiler", address: "Bronz Sk. No:1, Etiler, Istanbul", lat: 41.0784, lng: 29.0357 },
+  { category: "Restaurant", name: "Al Baik Dubai", address: "Sheikh Zayed Rd, Al Quoz, Dubai", lat: 25.1522, lng: 55.2396 },
+  { category: "Restaurant", name: "Ravi Restaurant Dubai", address: "Satwa, Dubai", lat: 25.2372, lng: 55.2631 },
+  { category: "Restaurant", name: "Al-Azhar Restaurant", address: "18 Baghdad St, Little India, Singapore", lat: 1.3024, lng: 103.8516 },
+  { category: "Restaurant", name: "Hjh Maimunah Restaurant", address: "11 Jln Pisang, Singapore 199078", lat: 1.3057, lng: 103.8587 },
+  { category: "Restaurant", name: "Zamzam Restaurant", address: "697-699 North Bridge Rd, Singapore", lat: 1.3000, lng: 103.8605 },
+  { category: "Restaurant", name: "Nasi Kandar Pelita", address: "149 Ampang Rd, 50450 Kuala Lumpur", lat: 3.1590, lng: 101.7230 },
+  { category: "Restaurant", name: "Village Park Restaurant KL", address: "Jln SS 21/37, Damansara Utama, PJ", lat: 3.1368, lng: 101.6258 },
+  { category: "Restaurant", name: "Tayyabs", address: "83-89 Fieldgate St, Whitechapel, London E1 1JU", lat: 51.5139, lng: -0.0571 },
+  { category: "Restaurant", name: "Lahore Kebab House", address: "2-10 Umberston St, Whitechapel, London", lat: 51.5150, lng: -0.0668 },
+  { category: "Restaurant", name: "Marhaba London", address: "29 Edgware Rd, London W2 2JE", lat: 51.5155, lng: -0.1634 },
+  { category: "Restaurant", name: "Al-Halal Kitchen Tokyo", address: "2-22-7 Shinjuku, Shinjuku City, Tokyo", lat: 35.6895, lng: 139.6917 },
+  { category: "Restaurant", name: "Malay Halal Ramen", address: "4-30-3 Nakano, Nakano City, Tokyo", lat: 35.7079, lng: 139.6659 },
+  { category: "Restaurant", name: "La Mosquée de Paris Café", address: "39 Rue Geoffroy-Saint-Hilaire, Paris", lat: 48.8440, lng: 2.3528 },
+  { category: "Restaurant", name: "Istanbul Kebab Paris", address: "14 Rue de la Huchette, Paris 75005", lat: 48.8527, lng: 2.3475 },
+  { category: "Restaurant", name: "Kunafa House KL", address: "Jln Bukit Bintang, 55100 Kuala Lumpur", lat: 3.1462, lng: 101.7124 },
+  // Prayer Space
+  { category: "Prayer Space", name: "Seoul Central Mosque", address: "39 Usadan-ro 10-gil, Yongsan-gu, Seoul", lat: 37.5344, lng: 126.9936 },
+  { category: "Prayer Space", name: "Masjid Itaewon", address: "Itaewon 1-dong, Yongsan-gu, Seoul", lat: 37.5348, lng: 126.9939 },
+  { category: "Prayer Space", name: "Gangnam Prayer Hall", address: "135 Teheran-ro, Gangnam-gu, Seoul", lat: 37.5012, lng: 127.0377 },
+  { category: "Prayer Space", name: "Blue Mosque (Sultan Ahmed)", address: "Atmeydanı Cd. No:7, Fatih, Istanbul", lat: 41.0054, lng: 28.9768 },
+  { category: "Prayer Space", name: "Süleymaniye Mosque", address: "Prof. Sıddık Sami Onar Cd., Fatih, Istanbul", lat: 41.0161, lng: 28.9637 },
+  { category: "Prayer Space", name: "Fatih Mosque", address: "İslambol Cd. No:2, Fatih, Istanbul", lat: 41.0202, lng: 28.9501 },
+  { category: "Prayer Space", name: "Grand Mosque Dubai", address: "Al Fahidi St, Bur Dubai, Dubai", lat: 25.2629, lng: 55.2936 },
+  { category: "Prayer Space", name: "Jumeirah Mosque", address: "Jumeirah Beach Rd, Jumeirah 1, Dubai", lat: 25.2330, lng: 55.2488 },
+  { category: "Prayer Space", name: "Al Farooq Omar Mosque", address: "Street No 17, Safa, Dubai", lat: 25.1782, lng: 55.2368 },
+  { category: "Prayer Space", name: "Masjid Sultan Singapore", address: "3 Muscat St, Singapore 198833", lat: 1.3044, lng: 103.8591 },
+  { category: "Prayer Space", name: "Masjid Abdul Gaffoor", address: "41 Dunlop St, Singapore 209369", lat: 1.3063, lng: 103.8534 },
+  { category: "Prayer Space", name: "National Mosque Malaysia", address: "Jln Lembah Perdana, Kuala Lumpur", lat: 3.1441, lng: 101.6927 },
+  { category: "Prayer Space", name: "Masjid Jamek", address: "Jln Tun Perak, 50100 Kuala Lumpur", lat: 3.1459, lng: 101.6952 },
+  { category: "Prayer Space", name: "Masjid Wilayah Persekutuan", address: "Jln Duta, Segambut, 50480 KL", lat: 3.1747, lng: 101.6698 },
+  { category: "Prayer Space", name: "London Central Mosque", address: "146 Park Rd, London NW8 7RG", lat: 51.5264, lng: -0.1593 },
+  { category: "Prayer Space", name: "East London Mosque", address: "82-92 Whitechapel Rd, London E1 1JQ", lat: 51.5161, lng: -0.0684 },
+  { category: "Prayer Space", name: "Finsbury Park Mosque", address: "7-11 St Thomas's Rd, London N4 2QH", lat: 51.5643, lng: -0.1036 },
+  { category: "Prayer Space", name: "Tokyo Camii", address: "1-19 Oyamacho, Shibuya City, Tokyo", lat: 35.6682, lng: 139.7008 },
+  { category: "Prayer Space", name: "Grande Mosquée de Paris", address: "2 Bis Pl. du Puits de l'Ermite, Paris", lat: 48.8444, lng: 2.3537 },
+  { category: "Prayer Space", name: "Mosquée Adda'wa Paris", address: "39 Rue de Tanger, Paris 75019", lat: 48.8833, lng: 2.3680 },
+  // Activity
+  { category: "Activity", name: "Han River Cruise Seoul", address: "Yeouido Hangang Park, Seoul", lat: 37.5260, lng: 126.9320 },
+  { category: "Activity", name: "K-Culture Experience Tour", address: "4 Insadong-gil, Jongno-gu, Seoul", lat: 37.5740, lng: 126.9854 },
+  { category: "Activity", name: "DMZ Tour from Seoul", address: "Seoul Station, Seoul", lat: 37.5546, lng: 126.9707 },
+  { category: "Activity", name: "Bosphorus Boat Tour", address: "Eminönü Pier, Istanbul", lat: 41.0168, lng: 28.9809 },
+  { category: "Activity", name: "Princes Islands Tour", address: "Adalar, Istanbul", lat: 40.8766, lng: 29.0874 },
+  { category: "Activity", name: "Cappadocia Hot Air Balloon", address: "Göreme, Nevşehir Province, Turkey", lat: 38.6431, lng: 34.8296 },
+  { category: "Activity", name: "Dubai Desert Safari", address: "Al Marmum Desert, Dubai", lat: 24.8950, lng: 55.3690 },
+  { category: "Activity", name: "Dubai Marina Yacht Cruise", address: "Dubai Marina, Dubai", lat: 25.0819, lng: 55.1367 },
+  { category: "Activity", name: "Burj Khalifa At the Top", address: "1 Sheikh Mohammed bin Rashid Blvd, Dubai", lat: 25.1972, lng: 55.2744 },
+  { category: "Activity", name: "Universal Studios Singapore", address: "8 Sentosa Gateway, Singapore 098269", lat: 1.2540, lng: 103.8238 },
+  { category: "Activity", name: "Singapore Night Safari", address: "80 Mandai Lake Rd, Singapore 729826", lat: 1.4043, lng: 103.7926 },
+  { category: "Activity", name: "Singapore Flyer", address: "30 Raffles Ave, Singapore 039803", lat: 1.2893, lng: 103.8631 },
+  { category: "Activity", name: "KL Tower Observation Deck", address: "Bukit Nanas, 50480 Kuala Lumpur", lat: 3.1528, lng: 101.7038 },
+  { category: "Activity", name: "Petronas Towers Sky Bridge", address: "KLCC, 50088 Kuala Lumpur", lat: 3.1578, lng: 101.7119 },
+  { category: "Activity", name: "Thames River Cruise London", address: "Westminster Pier, Victoria Embankment, London", lat: 51.5024, lng: -0.1222 },
+  { category: "Activity", name: "Harry Potter Studio Tour", address: "Studio Tour Dr, Leavesden WD25 7LR", lat: 51.6903, lng: -0.4199 },
+  { category: "Activity", name: "Tokyo DisneySea", address: "1-13 Maihama, Urayasu, Chiba", lat: 35.6270, lng: 139.8824 },
+  { category: "Activity", name: "Mt. Fuji Day Trip", address: "Fujisan, Fujiyoshida, Yamanashi", lat: 35.3606, lng: 138.7274 },
+  { category: "Activity", name: "Seine River Cruise Paris", address: "Port de la Bourdonnais, Paris 75007", lat: 48.8603, lng: 2.2917 },
+  { category: "Activity", name: "Versailles Palace Tour", address: "Place d'Armes, 78000 Versailles", lat: 48.8049, lng: 2.1204 },
+  // Shopping
+  { category: "Shopping", name: "Myeongdong Shopping Street", address: "Myeongdong, Jung-gu, Seoul", lat: 37.5630, lng: 126.9850 },
+  { category: "Shopping", name: "COEX Mall", address: "513 Yeongdong-daero, Gangnam-gu, Seoul", lat: 37.5115, lng: 127.0592 },
+  { category: "Shopping", name: "Dongdaemun Design Plaza", address: "281 Eulji-ro, Jung-gu, Seoul", lat: 37.5669, lng: 127.0095 },
+  { category: "Shopping", name: "Namdaemun Market", address: "21 Namdaemunsijang 4-gil, Jung-gu, Seoul", lat: 37.5594, lng: 126.9770 },
+  { category: "Shopping", name: "Grand Bazaar Istanbul", address: "Kalpakçılar Cd. No:22, Fatih, Istanbul", lat: 41.0108, lng: 28.9681 },
+  { category: "Shopping", name: "Spice Bazaar Istanbul", address: "Rüstem Paşa, Mısır Çarşısı No:1, Istanbul", lat: 41.0168, lng: 28.9695 },
+  { category: "Shopping", name: "Dubai Mall", address: "Financial Centre Rd, Downtown Dubai", lat: 25.1985, lng: 55.2796 },
+  { category: "Shopping", name: "Mall of the Emirates", address: "Sheikh Zayed Rd, Al Barsha 1, Dubai", lat: 25.1180, lng: 55.2003 },
+  { category: "Shopping", name: "Gold Souk Dubai", address: "Deira, Dubai", lat: 25.2700, lng: 55.3030 },
+  { category: "Shopping", name: "ION Orchard Singapore", address: "2 Orchard Turn, Singapore 238801", lat: 1.3040, lng: 103.8318 },
+  { category: "Shopping", name: "Bugis Street Market", address: "3 New Bugis St, Singapore 188867", lat: 1.2995, lng: 103.8554 },
+  { category: "Shopping", name: "VivoCity Singapore", address: "1 HarbourFront Walk, Singapore 098585", lat: 1.2641, lng: 103.8213 },
+  { category: "Shopping", name: "Suria KLCC", address: "Kuala Lumpur City Centre, 50088 KL", lat: 3.1578, lng: 101.7119 },
+  { category: "Shopping", name: "Pavilion Kuala Lumpur", address: "168 Jln Bukit Bintang, 55100 KL", lat: 3.1492, lng: 101.7134 },
+  { category: "Shopping", name: "Central Market KL", address: "Jalan Hang Kasturi, 50000 Kuala Lumpur", lat: 3.1446, lng: 101.6948 },
+  { category: "Shopping", name: "Oxford Street London", address: "Oxford St, London W1C 1JN", lat: 51.5152, lng: -0.1415 },
+  { category: "Shopping", name: "Westfield Stratford City", address: "The Arcade, London E20 1EJ", lat: 51.5432, lng: -0.0067 },
+  { category: "Shopping", name: "Harrods", address: "87-135 Brompton Rd, Knightsbridge, London SW1X 7XL", lat: 51.4994, lng: -0.1626 },
+  { category: "Shopping", name: "Shinjuku Takashimaya", address: "5-24-2 Sendagaya, Shibuya City, Tokyo", lat: 35.6893, lng: 139.7022 },
+  { category: "Shopping", name: "Galeries Lafayette Paris", address: "40 Bd Haussmann, 75009 Paris", lat: 48.8736, lng: 2.3320 },
+];
+
 const TRANSPORT_TYPES = [
   { type: "Train", icon: "🚂" }, { type: "Car", icon: "🚗" }, { type: "Bus", icon: "🚌" },
   { type: "Ferry", icon: "⛴️" }, { type: "Cruise", icon: "🚢" }, { type: "Taxi", icon: "🚕" },
@@ -281,14 +427,19 @@ function calcFlightDuration(dep: string, arr: string): string | null {
 
 function getPeriodOptions(categoryLabel: string): string[] {
   if (categoryLabel === "Restaurant") return ["Breakfast", "Lunch", "Dinner"];
-  if (categoryLabel === "Activity") return ["Tour", "Activity", "Show"];
+  if (categoryLabel === "Prayer Space") return ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+  if (categoryLabel === "Flight" || categoryLabel === "Stay") return [];
   return ["Morning", "Afternoon", "Evening"];
 }
 
-type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string };
+type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string; itemType: "flight" | "stay" | "transport" | "dayplan"; sourceId: string; dayIndex?: number };
 type TimelineGroup = { date: string; dateLabel: string; items: TimelineItem[] };
 
-function buildTimeline(info: EssentialInfo): TimelineGroup[] {
+function buildTimeline(
+  info: EssentialInfo,
+  placesByDay: Record<number, PlaceItem[]>,
+  dayDates: Date[]
+): TimelineGroup[] {
   const byDate: Record<string, TimelineItem[]> = {};
   const add = (date: string, item: TimelineItem) => {
     if (!date) return;
@@ -296,7 +447,12 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
     byDate[date].push(item);
   };
 
+  // Deduplicate flights by flightNumber + departureDate to prevent triple entries
+  const seenFlights = new Set<string>();
   for (const f of info.flights) {
+    const dedupeKey = `${f.flightNumber}|${f.departureDate}`;
+    if (seenFlights.has(dedupeKey)) continue;
+    seenFlights.add(dedupeKey);
     add(f.departureDate, {
       id: f.id, time: f.departureTime, icon: "✈️",
       line1: [f.from, f.to].filter(Boolean).join(" → ") || "Flight",
@@ -304,6 +460,8 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
         ? `${f.airline} (${f.flightNumber})`
         : (f.airline || f.flightNumber || undefined),
       line3: f.arrivalTime ? `Arrival: ${f.arrivalTime}` : undefined,
+      itemType: "flight",
+      sourceId: f.id,
     });
   }
 
@@ -313,6 +471,8 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
         id: `${s.id}-in`, time: s.checkInTime, icon: "🏨",
         line1: s.propertyName || "Stay",
         line2: s.checkInTime ? `Check-in ${s.checkInTime}` : "Check-in",
+        itemType: "stay",
+        sourceId: s.id,
       });
     }
     if (s.checkOutDate) {
@@ -320,6 +480,8 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
         id: `${s.id}-out`, time: s.checkOutTime, icon: "🏨",
         line1: s.propertyName || "Stay",
         line2: s.checkOutTime ? `Check-out ${s.checkOutTime}` : "Check-out",
+        itemType: "stay",
+        sourceId: s.id,
       });
     }
   }
@@ -329,7 +491,30 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
       id: t.id, time: t.time, icon: TRANSPORT_ICON_MAP[t.type] ?? "🚌",
       line1: [t.from, t.to].filter(Boolean).join(" → ") || t.type,
       line2: t.type || undefined,
+      itemType: "transport",
+      sourceId: t.id,
     });
+  }
+
+  // Merge Day Plan items into the timeline grouped by their actual date
+  for (const [dayIdxStr, places] of Object.entries(placesByDay)) {
+    const dayIdx = Number(dayIdxStr);
+    const date = dayDates[dayIdx];
+    if (!date) continue;
+    const dateStr = formatDate(date);
+    for (const place of places) {
+      if (place.type === "note") continue;
+      add(dateStr, {
+        id: `dayplan-${place.id}`,
+        time: place.time ?? "",
+        icon: place.icon,
+        line1: place.name,
+        line2: place.period || undefined,
+        itemType: "dayplan",
+        sourceId: place.id,
+        dayIndex: dayIdx,
+      });
+    }
   }
 
   return Object.entries(byDate)
@@ -388,7 +573,11 @@ export default function TripDetailPage() {
   const [toSearch, setToSearch] = useState("");
   const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
+  const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
+  const [returnToSummaryAfterEdit, setReturnToSummaryAfterEdit] = useState(false);
+  const [summaryConfirmDelete, setSummaryConfirmDelete] = useState<TimelineItem | null>(null);
   const [flightPriceInput, setFlightPriceInput] = useState("");
+  const [flightPriceCurrency, setFlightPriceCurrency] = useState("USD");
 
   // Day Plan quick-add
   const [memoFocused, setMemoFocused] = useState(false);
@@ -397,6 +586,10 @@ export default function TripDetailPage() {
   const [fabNoteBody, setFabNoteBody] = useState("");
   const [fabPeriod, setFabPeriod] = useState("");
   const [fabOthersNote, setFabOthersNote] = useState("");
+  const [fabActivitySubType, setFabActivitySubType] = useState("Activity");
+  const [fabLatLng, setFabLatLng] = useState<{ address: string; lat: number; lng: number } | null>(null);
+  const [fabLocationDropdownOpen, setFabLocationDropdownOpen] = useState(false);
+  const [fabValidationError, setFabValidationError] = useState("");
   const fabInputRef = useRef<HTMLInputElement>(null);
   const fabTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -453,7 +646,14 @@ export default function TripDetailPage() {
     ...checklistSections.quick,
   ];
   const checklistDone = allChecklist.filter((i) => i.done).length;
-  const timeline = useMemo(() => buildTimeline(essentialInfo), [essentialInfo]);
+  const timeline = useMemo(() => buildTimeline(essentialInfo, placesByDay, dayDates), [essentialInfo, placesByDay, dayDates]);
+
+  const fabLocationResults = useMemo(() => {
+    if (!fabCategory || !FAB_SEARCHABLE.includes(fabCategory.label) || !fabInput.trim()) return [];
+    return MOCK_LOCATIONS
+      .filter((loc) => loc.category === fabCategory.label && loc.name.toLowerCase().includes(fabInput.toLowerCase()))
+      .slice(0, 5);
+  }, [fabCategory, fabInput]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -486,6 +686,7 @@ export default function TripDetailPage() {
       setToDropdownOpen(false);
       setEditingFlightId(null);
       setFlightPriceInput("");
+      setFlightPriceCurrency("USD");
     }
   }, [showFlightForm]);
 
@@ -496,6 +697,62 @@ export default function TripDetailPage() {
     upsertTrip(updated);
     setTripMeta(updated);
     setShowEditPopup(false);
+  };
+
+  const handleSummaryEdit = (item: TimelineItem) => {
+    if (item.itemType === "flight") {
+      const f = essentialInfo.flights.find((fl) => fl.id === item.sourceId);
+      if (!f) return;
+      const { id: _id, ...fields } = f;
+      setDraftFlight(fields);
+      setEditingFlightId(f.id);
+      setAirlineSearch(f.airline);
+      const m = f.flightNumber.match(/^([A-Z]+)(\d+)$/);
+      setFlightIataPrefix(m?.[1] ?? "");
+      setFlightNumberSuffix(m?.[2] ?? f.flightNumber);
+      setFromSearch(airportLabel(f.from));
+      setToSearch(airportLabel(f.to));
+      setFlightPriceInput(f.price?.toString() ?? "");
+      setFlightPriceCurrency(f.priceCurrency ?? "USD");
+      setShowFlightForm(true);
+      setShowStayForm(false);
+      setShowTransportForm(false);
+      setReturnToSummaryAfterEdit(true);
+      setActiveTab("essential");
+    } else if (item.itemType === "dayplan" && item.dayIndex !== undefined) {
+      const places = placesByDay[item.dayIndex] ?? [];
+      const place = places.find((p) => p.id === item.sourceId);
+      if (!place) return;
+      setCurrentDayIndex(item.dayIndex);
+      const cat = QUICK_ADD_CATEGORIES.find((c) => c.label === place.category);
+      if (cat) setFabCategory(cat);
+      setFabInput(place.name);
+      setFabPeriod(place.period ?? "");
+      setFabOthersNote(place.noteBody ?? "");
+      setFabActivitySubType(place.subType ?? "Activity");
+      setFabLatLng(place.lat !== undefined ? { address: place.address ?? "", lat: place.lat, lng: place.lng ?? 0 } : null);
+      setEditingPlaceId(place.id);
+      setReturnToSummaryAfterEdit(true);
+      setActiveTab("day_plan");
+    }
+  };
+
+  const confirmSummaryDelete = () => {
+    if (!summaryConfirmDelete) return;
+    const item = summaryConfirmDelete;
+    if (item.itemType === "flight") {
+      deleteFlight(item.sourceId);
+    } else if (item.itemType === "stay") {
+      deleteStay(item.sourceId);
+    } else if (item.itemType === "transport") {
+      deleteTransport(item.sourceId);
+    } else if (item.itemType === "dayplan" && item.dayIndex !== undefined) {
+      setPlacesByDay((prev) => ({
+        ...prev,
+        [item.dayIndex!]: (prev[item.dayIndex!] ?? []).filter((p) => p.id !== item.sourceId),
+      }));
+    }
+    setSummaryConfirmDelete(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -510,24 +767,57 @@ export default function TripDetailPage() {
   };
 
   const addFabPlace = () => {
-    if (!fabInput.trim() || !fabCategory) return;
-    setPlacesByDay((prev) => ({
-      ...prev,
-      [currentDayIndex]: [
-        ...(prev[currentDayIndex] ?? []),
-        {
-          id: `${Date.now()}`,
-          name: fabInput.trim(),
-          category: fabCategory.label,
-          icon: fabCategory.icon,
-          ...(fabPeriod ? { period: fabPeriod } : {}),
-          ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
-        },
-      ],
-    }));
+    if (!fabCategory) return;
+    if (!fabInput.trim()) {
+      setFabValidationError(getValidationMessage(fabCategory.label));
+      return;
+    }
+
+    if (editingPlaceId !== null) {
+      setPlacesByDay((prev) => ({
+        ...prev,
+        [currentDayIndex]: (prev[currentDayIndex] ?? []).map((p) => {
+          if (p.id !== editingPlaceId) return p;
+          return {
+            ...p,
+            name: fabInput.trim(),
+            category: fabCategory.label,
+            icon: fabCategory.icon,
+            period: fabPeriod || undefined,
+            noteBody: fabOthersNote.trim() || undefined,
+            ...(fabCategory.label === "Activity" ? { subType: fabActivitySubType } : {}),
+            ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
+          };
+        }),
+      }));
+      setEditingPlaceId(null);
+      if (returnToSummaryAfterEdit) {
+        setReturnToSummaryAfterEdit(false);
+        setActiveTab("summary");
+      }
+    } else {
+      setPlacesByDay((prev) => ({
+        ...prev,
+        [currentDayIndex]: [
+          ...(prev[currentDayIndex] ?? []),
+          {
+            id: `${Date.now()}`,
+            name: fabInput.trim(),
+            category: fabCategory.label,
+            icon: fabCategory.icon,
+            ...(fabPeriod ? { period: fabPeriod } : {}),
+            ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
+            ...(fabCategory.label === "Activity" ? { subType: fabActivitySubType } : {}),
+            ...(fabLatLng ? { address: fabLatLng.address, lat: fabLatLng.lat, lng: fabLatLng.lng } : {}),
+          },
+        ],
+      }));
+    }
     setFabInput("");
     setFabPeriod("");
     setFabOthersNote("");
+    setFabActivitySubType("Activity");
+    setFabLatLng(null);
     setFabCategory(null);
   };
 
@@ -561,7 +851,11 @@ export default function TripDetailPage() {
   const updatePlaceTime = (id: string, time: string) => {
     setPlacesByDay((prev) => ({
       ...prev,
-      [currentDayIndex]: (prev[currentDayIndex] ?? []).map((p) => p.id === id ? { ...p, time } : p),
+      [currentDayIndex]: (prev[currentDayIndex] ?? []).map((p) => {
+        if (p.id !== id) return p;
+        if (p.duration && time) return { ...p, time, endTime: addMinutesToTime(time, parseInt(p.duration)) };
+        return { ...p, time };
+      }),
     }));
   };
 
@@ -572,10 +866,27 @@ export default function TripDetailPage() {
     }));
   };
 
+  const updatePlaceDuration = (id: string, duration: string | null) => {
+    setPlacesByDay((prev) => ({
+      ...prev,
+      [currentDayIndex]: (prev[currentDayIndex] ?? []).map((p) => {
+        if (p.id !== id) return p;
+        if (!duration) {
+          const { duration: _d, ...rest } = p;
+          return { ...rest, endTime: "" };
+        }
+        return { ...p, duration, endTime: p.time ? addMinutesToTime(p.time, parseInt(duration)) : "" };
+      }),
+    }));
+  };
+
   const saveFlight = () => {
     const numPrice = parseFloat(flightPriceInput);
     const hasPrice = isFinite(numPrice) && numPrice > 0;
-    const flightData = { ...draftFlight, ...(hasPrice ? { price: numPrice } : {}) };
+    const flightData = {
+      ...draftFlight,
+      ...(hasPrice ? { price: numPrice, priceCurrency: flightPriceCurrency } : { price: undefined, priceCurrency: undefined }),
+    };
 
     if (editingFlightId) {
       setEssentialInfo((prev) => ({
@@ -584,21 +895,48 @@ export default function TripDetailPage() {
           f.id === editingFlightId ? { id: f.id, ...flightData } : f
         ),
       }));
+      const budgetEntryId = `f-${editingFlightId}`;
+      if (hasPrice) {
+        setBudgetItems((prev) => {
+          const exists = prev.some((b) => b.id === budgetEntryId);
+          if (exists) {
+            return prev.map((b) =>
+              b.id === budgetEntryId
+                ? { ...b, amount: numPrice, currencyCode: flightPriceCurrency, date: draftFlight.departureDate || "" }
+                : b
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: budgetEntryId,
+              category: "🚌 Transport",
+              subcategory: "Flight",
+              amount: numPrice,
+              date: draftFlight.departureDate || "",
+              currencyCode: flightPriceCurrency,
+            },
+          ];
+        });
+      } else {
+        setBudgetItems((prev) => prev.filter((b) => b.id !== budgetEntryId));
+      }
     } else {
+      const flightId = `${Date.now()}`;
       setEssentialInfo((prev) => ({
         ...prev,
-        flights: [...prev.flights, { id: `${Date.now()}`, ...flightData }],
+        flights: [...prev.flights, { id: flightId, ...flightData }],
       }));
       if (hasPrice) {
         setBudgetItems((prev) => [
           ...prev,
           {
-            id: `f-${Date.now()}`,
+            id: `f-${flightId}`,
             category: "🚌 Transport",
             subcategory: "Flight",
             amount: numPrice,
             date: draftFlight.departureDate || "",
-            currencyCode: budgetCurrency,
+            currencyCode: flightPriceCurrency,
           },
         ]);
       }
@@ -606,6 +944,10 @@ export default function TripDetailPage() {
 
     setDraftFlight(emptyFlight());
     setShowFlightForm(false);
+    if (returnToSummaryAfterEdit) {
+      setReturnToSummaryAfterEdit(false);
+      setActiveTab("summary");
+    }
   };
   const saveStay = () => {
     setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: `${Date.now()}`, ...draftStay }] }));
@@ -727,7 +1069,7 @@ export default function TripDetailPage() {
               </div>
             </div>
 
-            {/* Timeline */}
+            {/* Timeline — flights + stays + transports + Day Plan items merged and sorted */}
             {timeline.length > 0 && (
               <div className="space-y-1">
                 {timeline.map((group) => (
@@ -742,10 +1084,26 @@ export default function TripDetailPage() {
                             <div className="min-h-8 w-0.5 flex-1 bg-[#2d6a4f] opacity-25" />
                           )}
                         </div>
-                        <div className="flex-1 pb-3">
-                          <p className="text-sm font-medium text-[--color-text]">{item.icon} {item.line1}</p>
-                          {item.line2 && <p className="text-xs text-[--color-text-muted]">{item.line2}</p>}
-                          {item.line3 && <p className="text-xs text-[--color-text-muted]">{item.line3}</p>}
+                        <div className="flex flex-1 gap-2 pb-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[--color-text]">{item.icon} {item.line1}</p>
+                            {item.line2 && <p className="text-xs text-[--color-text-muted]">{item.line2}</p>}
+                            {item.line3 && <p className="text-xs text-[--color-text-muted]">{item.line3}</p>}
+                          </div>
+                          <div className="flex shrink-0 items-start gap-1.5 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSummaryEdit(item)}
+                              className="text-xs text-[#2d6a4f] hover:underline"
+                              aria-label="Edit"
+                            >✏️</button>
+                            <button
+                              type="button"
+                              onClick={() => setSummaryConfirmDelete(item)}
+                              className="text-xs text-[#c4704a] hover:opacity-70"
+                              aria-label="Delete"
+                            >✕</button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -839,7 +1197,7 @@ export default function TripDetailPage() {
                   <div>
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Departure date</label>
                     <input type="date" value={draftFlight.departureDate}
-                      onChange={(e) => { const v = e.target.value; setDraftFlight((p) => ({ ...p, departureDate: v, arrivalDate: p.arrivalDate || v })); }}
+                      onChange={(e) => { const v = e.target.value; setDraftFlight((p) => ({ ...p, departureDate: v, arrivalDate: v })); }}
                       className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                   </div>
                   <div>
@@ -979,9 +1337,15 @@ export default function TripDetailPage() {
                   <div className="col-span-2">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Price (optional)</label>
                     <div className="flex overflow-hidden rounded border border-[--color-border]">
-                      <span className="flex shrink-0 items-center border-r border-[--color-border] bg-[--color-surface] px-2 text-sm text-[--color-text-muted]">
-                        {getCurrencySymbol(budgetCurrency)}
-                      </span>
+                      <select
+                        value={flightPriceCurrency}
+                        onChange={(e) => setFlightPriceCurrency(e.target.value)}
+                        className="shrink-0 border-r border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm text-[--color-text-muted] outline-none"
+                      >
+                        {FLIGHT_PRICE_CURRENCIES.map((c) => (
+                          <option key={c.code} value={c.code}>{c.code}</option>
+                        ))}
+                      </select>
                       <input
                         value={flightPriceInput}
                         onChange={(e) => setFlightPriceInput(e.target.value.replace(/[^0-9.]/g, ""))}
@@ -1008,7 +1372,7 @@ export default function TripDetailPage() {
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={saveFlight} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
-                  <button type="button" onClick={() => { setShowFlightForm(false); setDraftFlight(emptyFlight()); }} className="rounded-lg border border-[--color-border] px-4 py-2 text-sm text-[--color-text-muted]">Cancel</button>
+                  <button type="button" onClick={() => { setShowFlightForm(false); setDraftFlight(emptyFlight()); setReturnToSummaryAfterEdit(false); }} className="rounded-lg border border-[--color-border] px-4 py-2 text-sm text-[--color-text-muted]">Cancel</button>
                 </div>
               </div>
             )}
@@ -1042,6 +1406,7 @@ export default function TripDetailPage() {
                           setFromSearch(airportLabel(f.from));
                           setToSearch(airportLabel(f.to));
                           setFlightPriceInput(f.price?.toString() ?? "");
+                          setFlightPriceCurrency(f.priceCurrency ?? "USD");
                           setShowFlightForm(true);
                           setShowStayForm(false);
                           setShowTransportForm(false);
@@ -1205,6 +1570,9 @@ export default function TripDetailPage() {
                     setFabNoteBody("");
                     setFabPeriod("");
                     setFabOthersNote("");
+                    setFabActivitySubType("Activity");
+                    setFabLatLng(null);
+                    setFabLocationDropdownOpen(false);
                   }}
                   className={[
                     "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
@@ -1221,35 +1589,81 @@ export default function TripDetailPage() {
             {/* Inline input for selected category */}
             {fabCategory && fabCategory.label !== "Note" && (
               <div className="space-y-2.5 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
-                <div className="flex gap-2">
-                  <span className="text-base">{fabCategory.icon}</span>
-                  <input
-                    ref={fabInputRef}
-                    value={fabInput}
-                    onChange={(e) => setFabInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addFabPlace()}
-                    placeholder={`${fabCategory.label} name`}
-                    className="flex-1 bg-transparent text-sm outline-none"
-                  />
+                {/* Name / location search */}
+                <div className="flex items-center gap-2">
+                  <span className="text-base shrink-0">{fabCategory.icon}</span>
+                  <div className="relative flex-1">
+                    <input
+                      ref={fabInputRef}
+                      value={fabInput}
+                      onChange={(e) => {
+                        setFabInput(e.target.value);
+                        setFabLatLng(null);
+                        if (FAB_SEARCHABLE.includes(fabCategory.label)) setFabLocationDropdownOpen(true);
+                      }}
+                      onFocus={() => { if (FAB_SEARCHABLE.includes(fabCategory.label)) setFabLocationDropdownOpen(true); }}
+                      onBlur={() => setTimeout(() => setFabLocationDropdownOpen(false), 150)}
+                      onKeyDown={(e) => e.key === "Enter" && addFabPlace()}
+                      placeholder={FAB_SEARCHABLE.includes(fabCategory.label) ? `Search ${fabCategory.label.toLowerCase()}...` : `${fabCategory.label} name`}
+                      className="w-full bg-transparent text-sm outline-none"
+                    />
+                    {fabLocationDropdownOpen && fabLocationResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                        {fabLocationResults.map((loc) => (
+                          <button
+                            key={`${loc.name}-${loc.lat}`}
+                            type="button"
+                            onMouseDown={() => {
+                              setFabInput(loc.name);
+                              setFabLatLng({ address: loc.address, lat: loc.lat, lng: loc.lng });
+                              setFabLocationDropdownOpen(false);
+                            }}
+                            className="flex w-full flex-col px-3 py-2 text-left transition-colors hover:bg-[--color-surface]"
+                          >
+                            <span className="text-sm text-[--color-text]">{loc.name}</span>
+                            <span className="text-xs text-[--color-text-muted]">{loc.address}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {/* Period chips */}
-                <div className="flex flex-wrap gap-1.5">
-                  {getPeriodOptions(fabCategory.label).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setFabPeriod(fabPeriod === opt ? "" : opt)}
-                      className={[
-                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                        fabPeriod === opt
-                          ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
-                          : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
-                      ].join(" ")}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
+
+                {/* Activity sub-type selector */}
+                {fabCategory.label === "Activity" && (
+                  <div className="flex gap-2">
+                    {["Tour", "Activity", "Show"].map((sub) => (
+                      <button
+                        key={sub}
+                        type="button"
+                        onClick={() => setFabActivitySubType(sub)}
+                        className={["rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
+                          fabActivitySubType === sub ? "border-[#2d6a4f] bg-[#2d6a4f] text-white" : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
+                        ].join(" ")}
+                      >{sub}</button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Period chips (time of day) */}
+                {getPeriodOptions(fabCategory.label).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {getPeriodOptions(fabCategory.label).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setFabPeriod(fabPeriod === opt ? "" : opt)}
+                        className={[
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                          fabPeriod === opt
+                            ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
+                            : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
+                        ].join(" ")}
+                      >{opt}</button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Others free-text */}
                 <input
                   value={fabOthersNote}
@@ -1258,8 +1672,8 @@ export default function TripDetailPage() {
                   className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
                 />
                 <div className="flex gap-2">
-                  <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">Add</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                  <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">{editingPlaceId ? "Save" : "Add"}</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); setFabActivitySubType("Activity"); setFabLatLng(null); setEditingPlaceId(null); setReturnToSummaryAfterEdit(false); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
                 </div>
               </div>
             )}
@@ -1313,6 +1727,7 @@ export default function TripDetailPage() {
                         onRemove={removePlace}
                         onTimeChange={updatePlaceTime}
                         onEndTimeChange={updatePlaceEndTime}
+                        onDurationChange={updatePlaceDuration}
                       />
                       {idx < dayPlaces.length - 1 && (
                         <p className="py-1 pl-14 text-xs text-[--color-text-muted]">~ Travel time: ~18 min</p>
@@ -1352,7 +1767,7 @@ export default function TripDetailPage() {
                   {budgetItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
                       <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory} · {item.date}</p>
-                      <p className="font-medium text-[--color-text]">{getCurrencySymbol(item.currencyCode ?? "USD")}{item.amount}</p>
+                      <p className="font-medium text-[--color-text]">{item.currencyCode ?? "USD"} {item.amount.toLocaleString()}</p>
                     </div>
                   ))}
                   {budgetItems.length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
@@ -1453,6 +1868,44 @@ export default function TripDetailPage() {
           onClose={() => setShowEditPopup(false)}
         />
       )}
+
+      {/* ── Validation Error Modal ── */}
+      {fabValidationError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setFabValidationError("")}>
+          <div className="w-72 rounded-xl bg-[--color-surface] p-6 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-4 text-sm text-[--color-text]">{fabValidationError}</p>
+            <button
+              type="button"
+              onClick={() => setFabValidationError("")}
+              className="rounded-lg bg-[#2d6a4f] px-6 py-2 text-sm font-medium text-white"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {summaryConfirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSummaryConfirmDelete(null)}>
+          <div className="w-72 rounded-xl bg-[--color-surface] p-6 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-2 text-sm font-semibold text-[--color-text]">Delete this item?</p>
+            <p className="mb-5 text-xs text-[--color-text-muted] truncate">{summaryConfirmDelete.icon} {summaryConfirmDelete.line1}</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSummaryConfirmDelete(null)}
+                className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm text-[--color-text-muted] hover:border-[#2d6a4f]"
+              >No</button>
+              <button
+                type="button"
+                onClick={confirmSummaryDelete}
+                className="flex-1 rounded-lg bg-[#c4704a] py-2 text-sm font-medium text-white"
+              >Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1460,12 +1913,13 @@ export default function TripDetailPage() {
 // ── Sub-components ──────────────────────────────────────────────────────
 
 function SortablePlaceCard({
-  place, onRemove, onTimeChange, onEndTimeChange,
+  place, onRemove, onTimeChange, onEndTimeChange, onDurationChange,
 }: {
   place: PlaceItem;
   onRemove: (id: string) => void;
   onTimeChange: (id: string, time: string) => void;
   onEndTimeChange: (id: string, endTime: string) => void;
+  onDurationChange: (id: string, duration: string | null) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: place.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -1513,32 +1967,39 @@ function SortablePlaceCard({
         >
           Open-ended <span>×</span>
         </button>
-      ) : place.endTime ? (
+      ) : place.duration ? (
         <div className="flex shrink-0 items-center gap-1">
-          <input type="time" value={place.endTime} onChange={(e) => onEndTimeChange(place.id, e.target.value)}
-            className="w-[4.5rem] rounded border border-[--color-border] bg-[--color-surface] px-1.5 py-1 text-xs text-[--color-text-muted]"
-          />
-          <button type="button" onClick={() => onEndTimeChange(place.id, "")} className="text-xs text-[--color-text-muted] hover:text-[#c4704a]">×</button>
+          <span className="text-xs text-[--color-text-muted]">{place.endTime || "–"}</span>
+          <button type="button" onClick={() => onDurationChange(place.id, null)} className="text-xs text-[--color-text-muted] hover:text-[#c4704a]">×</button>
         </div>
       ) : (
         <select
           value=""
           onChange={(e) => {
             const v = e.target.value;
-            onEndTimeChange(place.id, v === "custom" ? "12:00" : v);
+            if (v === "open") onEndTimeChange(place.id, "open");
+            else if (v) onDurationChange(place.id, v);
           }}
-          className="w-24 shrink-0 rounded border border-[--color-border] bg-[--color-surface] px-1 py-1 text-xs text-[--color-text-muted]"
+          className="w-28 shrink-0 rounded border border-[--color-border] bg-[--color-surface] px-1 py-1 text-xs text-[--color-text-muted]"
         >
           <option value="">–</option>
           <option value="open">Open-ended</option>
-          <option value="custom">Set time</option>
+          <option value="30">30 min</option>
+          <option value="60">1 hour</option>
+          <option value="90">1.5 hours</option>
+          <option value="120">2 hours</option>
+          <option value="150">2.5 hours</option>
+          <option value="180">3 hours</option>
         </select>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="truncate text-sm font-medium text-[--color-text]">{place.icon} {place.name}</p>
-        {(place.period || place.noteBody) && (
+        {(place.subType || place.period || place.noteBody) && (
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {place.subType && (
+              <span className="rounded-full bg-[#2d6a4f]/20 px-2 py-0.5 text-[10px] font-semibold text-[#2d6a4f]">{place.subType}</span>
+            )}
             {place.period && (
               <span className="rounded-full bg-[#2d6a4f]/10 px-2 py-0.5 text-[10px] font-medium text-[#2d6a4f]">{place.period}</span>
             )}

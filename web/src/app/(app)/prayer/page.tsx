@@ -199,11 +199,133 @@ function CustomPopup({
   );
 }
 
+// ── Prayer time override popup ───────────────────────────────────────────
+function OverridePopup({
+  prayerName,
+  currentTime,
+  onConfirm,
+  onClose,
+}: {
+  prayerName: PrayerName;
+  currentTime: string;
+  onConfirm: (time: string) => void;
+  onClose: () => void;
+}) {
+  const [time, setTime] = useState(currentTime);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.4)",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 280,
+          borderRadius: 16,
+          backgroundColor: "var(--color-surface)",
+          padding: 24,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+        }}
+      >
+        <p
+          style={{
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: 15,
+            marginBottom: 4,
+            color: "var(--color-text)",
+          }}
+        >
+          {PRAYER_META[prayerName].icon} Set {prayerName} time
+        </p>
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 12,
+            color: "var(--color-text-muted)",
+            marginBottom: 20,
+          }}
+        >
+          기본값을 덮어씁니다 (manual override)
+        </p>
+
+        <input
+          type="time"
+          value={time}
+          autoFocus
+          onChange={(e) => setTime(e.target.value)}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            border: "1px solid #2d6a4f",
+            borderRadius: 10,
+            padding: "10px 12px",
+            fontSize: 24,
+            fontWeight: 700,
+            textAlign: "center",
+            outline: "none",
+            backgroundColor: "var(--color-background)",
+            color: "var(--color-text)",
+          }}
+        />
+
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1,
+              border: "1px solid var(--color-border)",
+              borderRadius: 10,
+              padding: "10px 0",
+              fontSize: 14,
+              color: "var(--color-text-muted)",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => time && onConfirm(time)}
+            disabled={!time}
+            style={{
+              flex: 1,
+              border: "none",
+              borderRadius: 10,
+              padding: "10px 0",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#fff",
+              backgroundColor: time ? "#2d6a4f" : "#9ca3af",
+              cursor: time ? "pointer" : "not-allowed",
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────
 export default function PrayerPage() {
   // Prevent SSR/hydration mismatch: render nothing store-dependent until client mount
   const [mounted, setMounted] = useState(false);
   const [customTarget, setCustomTarget] = useState<PrayerName | null>(null);
+  const [overrideTarget, setOverrideTarget] = useState<PrayerName | null>(null);
   const notifTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Always call the hook unconditionally
@@ -214,6 +336,9 @@ export default function PrayerPage() {
   const prayers: Record<PrayerName, PrayerNotifSetting> = mounted
     ? store.prayers ?? DEFAULT_PRAYER_SETTINGS
     : DEFAULT_PRAYER_SETTINGS;
+  const overrideTimes: Partial<Record<PrayerName, string>> = mounted
+    ? store.overrideTimes ?? {}
+    : {};
 
   useEffect(() => {
     setMounted(true);
@@ -236,7 +361,9 @@ export default function PrayerPage() {
       const s = store.prayers?.[name];
       if (!s?.enabled) return;
 
-      const [h, m] = PRAYER_TIMES[name].split(":").map(Number);
+      // Use manually overridden time if set, otherwise fall back to default
+      const prayerTime = store.overrideTimes?.[name] ?? PRAYER_TIMES[name];
+      const [h, m] = prayerTime.split(":").map(Number);
       const now = new Date();
       const fireAt = new Date(
         now.getFullYear(),
@@ -249,7 +376,7 @@ export default function PrayerPage() {
       if (fireAt <= now) return;
 
       const id = setTimeout(() => {
-        new Notification(`${PRAYER_META[name].icon} ${name} – ${PRAYER_TIMES[name]}`, {
+        new Notification(`${PRAYER_META[name].icon} ${name} – ${prayerTime}`, {
           body: `${name} prayer in ${s.minutesBefore} min`,
           icon: "/favicon.png",
           tag: `prayer-${name}`,
@@ -261,13 +388,13 @@ export default function PrayerPage() {
     });
 
     return () => notifTimers.current.forEach(clearTimeout);
-  }, [mounted, store.globalEnabled, store.prayers]);
+  }, [mounted, store.globalEnabled, store.prayers, store.overrideTimes]);
 
   return (
     <div className="space-y-4 pb-4">
       {/* ── Header ── */}
       <header>
-        <h1 className="text-2xl font-bold text-[--color-text]">Prayer</h1>
+        <h1 className="text-2xl font-bold text-[--color-text]">Pray</h1>
       </header>
 
       {/* ── Quick links ── */}
@@ -312,10 +439,12 @@ export default function PrayerPage() {
           {PRAYER_NAMES.map((name) => {
             const meta = PRAYER_META[name];
             const setting = prayers[name] ?? { enabled: true, minutesBefore: 10 };
-            const rowOn = globalEnabled && setting.enabled;
+            const rowOn = setting.enabled;
             const isCustomMin = !(PRESET_MINS as readonly number[]).includes(
               setting.minutesBefore
             );
+            const effectiveTime = overrideTimes[name] ?? PRAYER_TIMES[name];
+            const isOverridden = !!overrideTimes[name];
 
             return (
               <div key={name} className="px-4 py-3">
@@ -326,62 +455,105 @@ export default function PrayerPage() {
                     <p className="text-sm font-semibold text-[--color-text]">{name}</p>
                     <p className="text-xs text-[--color-text-muted]">{meta.arabic}</p>
                   </div>
-                  <span className="shrink-0 font-mono text-sm font-semibold text-[--color-text]">
-                    {PRAYER_TIMES[name]}
-                  </span>
+
+                  {/* Tappable time — opens override popup */}
+                  <button
+                    type="button"
+                    onClick={() => setOverrideTarget(name)}
+                    title="Tap to set custom time"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
+                      padding: "2px 4px",
+                      borderRadius: 6,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: isOverridden ? "#2d6a4f" : "var(--color-text)",
+                      }}
+                    >
+                      {effectiveTime}
+                    </span>
+                    {isOverridden && (
+                      <span style={{ fontSize: 10, lineHeight: 1 }}>✏️</span>
+                    )}
+                  </button>
+
                   <Toggle
                     on={setting.enabled}
                     onToggle={() => store.setPrayerEnabled(name, !setting.enabled)}
-                    disabled={!globalEnabled}
                   />
                 </div>
 
                 {/* Notification time chips — only when row is active */}
                 {rowOn && (
-                  <div
-                    className="mt-2.5 flex flex-wrap gap-1.5"
-                    style={{ paddingLeft: 36 }}
-                  >
-                    {PRESET_MINS.map((min) => {
-                      const active = setting.minutesBefore === min;
-                      return (
-                        <button
-                          key={min}
-                          type="button"
-                          onClick={() => store.setPrayerMinutes(name, min)}
-                          style={{
-                            border: `1px solid ${active ? "#2d6a4f" : "var(--color-border)"}`,
-                            backgroundColor: active ? "#2d6a4f" : "transparent",
-                            color: active ? "#fff" : "var(--color-text-muted)",
-                            borderRadius: 999,
-                            padding: "4px 12px",
-                            fontSize: 12,
-                            fontWeight: 500,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {min}분
-                        </button>
-                      );
-                    })}
+                  <div style={{ paddingLeft: 36, marginTop: 10 }}>
+                    {/* Bell label */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                      <span style={{ fontSize: 11 }}>🔔</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--color-text-muted)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        알림 설정
+                      </span>
+                    </div>
 
-                    {/* Custom chip */}
-                    <button
-                      type="button"
-                      onClick={() => setCustomTarget(name)}
-                      style={{
-                        border: `1px solid ${isCustomMin ? "#c4704a" : "var(--color-border)"}`,
-                        backgroundColor: isCustomMin ? "#c4704a" : "transparent",
-                        color: isCustomMin ? "#fff" : "var(--color-text-muted)",
-                        borderRadius: 999,
-                        padding: "4px 12px",
-                        fontSize: 12,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {isCustomMin ? `${setting.minutesBefore}분` : "Custom"}
-                    </button>
+                    {/* Preset chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESET_MINS.map((min) => {
+                        const active = setting.minutesBefore === min;
+                        return (
+                          <button
+                            key={min}
+                            type="button"
+                            onClick={() => store.setPrayerMinutes(name, min)}
+                            style={{
+                              border: `1px solid ${active ? "#2d6a4f" : "var(--color-border)"}`,
+                              backgroundColor: active ? "#2d6a4f" : "transparent",
+                              color: active ? "#fff" : "var(--color-text-muted)",
+                              borderRadius: 999,
+                              padding: "4px 12px",
+                              fontSize: 12,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {min}분 전
+                          </button>
+                        );
+                      })}
+
+                      {/* 직접 입력 chip */}
+                      <button
+                        type="button"
+                        onClick={() => setCustomTarget(name)}
+                        style={{
+                          border: `1px solid ${isCustomMin ? "#c4704a" : "var(--color-border)"}`,
+                          backgroundColor: isCustomMin ? "#c4704a" : "transparent",
+                          color: isCustomMin ? "#fff" : "var(--color-text-muted)",
+                          borderRadius: 999,
+                          padding: "4px 12px",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {isCustomMin ? `${setting.minutesBefore}분 전` : "직접 입력"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -400,6 +572,19 @@ export default function PrayerPage() {
             setCustomTarget(null);
           }}
           onClose={() => setCustomTarget(null)}
+        />
+      )}
+
+      {/* ── Prayer time override popup ── */}
+      {overrideTarget && (
+        <OverridePopup
+          prayerName={overrideTarget}
+          currentTime={overrideTimes[overrideTarget] ?? PRAYER_TIMES[overrideTarget]}
+          onConfirm={(time) => {
+            store.setOverrideTime(overrideTarget, time);
+            setOverrideTarget(null);
+          }}
+          onClose={() => setOverrideTarget(null)}
         />
       )}
     </div>

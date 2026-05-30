@@ -11,7 +11,7 @@ export type TripRecord = {
   createdAt: string;
 };
 
-export type TripPlace = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; noteBody?: string; type?: "note"; period?: string };
+export type TripPlace = { id: string; name: string; category: string; icon: string; time?: string; endTime?: string; duration?: string; noteBody?: string; type?: "note"; period?: string; subType?: string; address?: string; lat?: number; lng?: number };
 export type TripBudgetItem = { id: string; category: string; subcategory: string; amount: number; date: string; currencyCode?: string };
 export type TripChecklistItem = { id: string; text: string; done: boolean };
 export type TripChecklistSections = {
@@ -32,6 +32,7 @@ export type FlightItem = {
   flightNumber: string;
   attachmentName?: string;
   price?: number;
+  priceCurrency?: string;
 };
 
 export type StayItem = {
