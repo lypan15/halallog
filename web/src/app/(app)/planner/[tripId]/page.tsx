@@ -56,7 +56,7 @@ const TRIP_TABS: Array<{ id: TripTab; label: string }> = [
 
 const QUICK_ADD_CATEGORIES = [
   { label: "Place", icon: "📍" },
-  { label: "Restaurant", icon: "🍽️" },
+  { label: "Food", icon: "🍽️" },
   { label: "Prayer Space", icon: "🕌" },
   { label: "Things to Do", icon: "🎫" },
   { label: "Shopping", icon: "🛍️" },
@@ -148,7 +148,7 @@ const FLIGHT_PRICE_CURRENCIES = [
   { code: "IDR", symbol: "Rp" },
 ];
 
-const FAB_SEARCHABLE = ["Place", "Restaurant", "Prayer Space", "Things to Do", "Shopping"];
+const FAB_SEARCHABLE = ["Place", "Food", "Prayer Space", "Things to Do", "Shopping"];
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(":").map(Number);
@@ -182,7 +182,7 @@ function formatTime12h(time: string): string {
 function getValidationMessage(category: string): string {
   const msgs: Record<string, string> = {
     "Place": "Please enter a place name",
-    "Restaurant": "Please enter a restaurant name",
+    "Food": "Please enter a restaurant name",
     "Prayer Space": "Please enter a prayer space name",
     "Things to Do": "Please enter a name",
     "Shopping": "Please enter a store name",
@@ -213,27 +213,27 @@ const MOCK_LOCATIONS: MockLocation[] = [
   { category: "Place", name: "Tower of London", address: "St Katharine's & Wapping, London EC3N 4AB", lat: 51.5081, lng: -0.0759 },
   { category: "Place", name: "Hyde Park", address: "Hyde Park, London W2 2UH", lat: 51.5073, lng: -0.1657 },
   { category: "Place", name: "Eiffel Tower", address: "Champ de Mars, 5 Av. Anatole France, Paris", lat: 48.8584, lng: 2.2945 },
-  // Restaurant
-  { category: "Restaurant", name: "Itaewon Halal Food Street", address: "Itaewon-ro, Yongsan-gu, Seoul", lat: 37.5340, lng: 126.9944 },
-  { category: "Restaurant", name: "Makan Korean Halal", address: "12 Cheongpa-ro, Yongsan-gu, Seoul", lat: 37.5402, lng: 126.9657 },
-  { category: "Restaurant", name: "Hamdi Restaurant", address: "Kalçın Sk. No:17, Eminönü, Istanbul", lat: 41.0141, lng: 28.9716 },
-  { category: "Restaurant", name: "Hafız Mustafa", address: "Hamidiye Cd. No:84, Fatih, Istanbul", lat: 41.0168, lng: 28.9709 },
-  { category: "Restaurant", name: "Nusret Etiler", address: "Bronz Sk. No:1, Etiler, Istanbul", lat: 41.0784, lng: 29.0357 },
-  { category: "Restaurant", name: "Al Baik Dubai", address: "Sheikh Zayed Rd, Al Quoz, Dubai", lat: 25.1522, lng: 55.2396 },
-  { category: "Restaurant", name: "Ravi Restaurant Dubai", address: "Satwa, Dubai", lat: 25.2372, lng: 55.2631 },
-  { category: "Restaurant", name: "Al-Azhar Restaurant", address: "18 Baghdad St, Little India, Singapore", lat: 1.3024, lng: 103.8516 },
-  { category: "Restaurant", name: "Hjh Maimunah Restaurant", address: "11 Jln Pisang, Singapore 199078", lat: 1.3057, lng: 103.8587 },
-  { category: "Restaurant", name: "Zamzam Restaurant", address: "697-699 North Bridge Rd, Singapore", lat: 1.3000, lng: 103.8605 },
-  { category: "Restaurant", name: "Nasi Kandar Pelita", address: "149 Ampang Rd, 50450 Kuala Lumpur", lat: 3.1590, lng: 101.7230 },
-  { category: "Restaurant", name: "Village Park Restaurant KL", address: "Jln SS 21/37, Damansara Utama, PJ", lat: 3.1368, lng: 101.6258 },
-  { category: "Restaurant", name: "Tayyabs", address: "83-89 Fieldgate St, Whitechapel, London E1 1JU", lat: 51.5139, lng: -0.0571 },
-  { category: "Restaurant", name: "Lahore Kebab House", address: "2-10 Umberston St, Whitechapel, London", lat: 51.5150, lng: -0.0668 },
-  { category: "Restaurant", name: "Marhaba London", address: "29 Edgware Rd, London W2 2JE", lat: 51.5155, lng: -0.1634 },
-  { category: "Restaurant", name: "Al-Halal Kitchen Tokyo", address: "2-22-7 Shinjuku, Shinjuku City, Tokyo", lat: 35.6895, lng: 139.6917 },
-  { category: "Restaurant", name: "Malay Halal Ramen", address: "4-30-3 Nakano, Nakano City, Tokyo", lat: 35.7079, lng: 139.6659 },
-  { category: "Restaurant", name: "La Mosquée de Paris Café", address: "39 Rue Geoffroy-Saint-Hilaire, Paris", lat: 48.8440, lng: 2.3528 },
-  { category: "Restaurant", name: "Istanbul Kebab Paris", address: "14 Rue de la Huchette, Paris 75005", lat: 48.8527, lng: 2.3475 },
-  { category: "Restaurant", name: "Kunafa House KL", address: "Jln Bukit Bintang, 55100 Kuala Lumpur", lat: 3.1462, lng: 101.7124 },
+  // Food
+  { category: "Food", name: "Itaewon Halal Food Street", address: "Itaewon-ro, Yongsan-gu, Seoul", lat: 37.5340, lng: 126.9944 },
+  { category: "Food", name: "Makan Korean Halal", address: "12 Cheongpa-ro, Yongsan-gu, Seoul", lat: 37.5402, lng: 126.9657 },
+  { category: "Food", name: "Hamdi Restaurant", address: "Kalçın Sk. No:17, Eminönü, Istanbul", lat: 41.0141, lng: 28.9716 },
+  { category: "Food", name: "Hafız Mustafa", address: "Hamidiye Cd. No:84, Fatih, Istanbul", lat: 41.0168, lng: 28.9709 },
+  { category: "Food", name: "Nusret Etiler", address: "Bronz Sk. No:1, Etiler, Istanbul", lat: 41.0784, lng: 29.0357 },
+  { category: "Food", name: "Al Baik Dubai", address: "Sheikh Zayed Rd, Al Quoz, Dubai", lat: 25.1522, lng: 55.2396 },
+  { category: "Food", name: "Ravi Restaurant Dubai", address: "Satwa, Dubai", lat: 25.2372, lng: 55.2631 },
+  { category: "Food", name: "Al-Azhar Restaurant", address: "18 Baghdad St, Little India, Singapore", lat: 1.3024, lng: 103.8516 },
+  { category: "Food", name: "Hjh Maimunah Restaurant", address: "11 Jln Pisang, Singapore 199078", lat: 1.3057, lng: 103.8587 },
+  { category: "Food", name: "Zamzam Restaurant", address: "697-699 North Bridge Rd, Singapore", lat: 1.3000, lng: 103.8605 },
+  { category: "Food", name: "Nasi Kandar Pelita", address: "149 Ampang Rd, 50450 Kuala Lumpur", lat: 3.1590, lng: 101.7230 },
+  { category: "Food", name: "Village Park Restaurant KL", address: "Jln SS 21/37, Damansara Utama, PJ", lat: 3.1368, lng: 101.6258 },
+  { category: "Food", name: "Tayyabs", address: "83-89 Fieldgate St, Whitechapel, London E1 1JU", lat: 51.5139, lng: -0.0571 },
+  { category: "Food", name: "Lahore Kebab House", address: "2-10 Umberston St, Whitechapel, London", lat: 51.5150, lng: -0.0668 },
+  { category: "Food", name: "Marhaba London", address: "29 Edgware Rd, London W2 2JE", lat: 51.5155, lng: -0.1634 },
+  { category: "Food", name: "Al-Halal Kitchen Tokyo", address: "2-22-7 Shinjuku, Shinjuku City, Tokyo", lat: 35.6895, lng: 139.6917 },
+  { category: "Food", name: "Malay Halal Ramen", address: "4-30-3 Nakano, Nakano City, Tokyo", lat: 35.7079, lng: 139.6659 },
+  { category: "Food", name: "La Mosquée de Paris Café", address: "39 Rue Geoffroy-Saint-Hilaire, Paris", lat: 48.8440, lng: 2.3528 },
+  { category: "Food", name: "Istanbul Kebab Paris", address: "14 Rue de la Huchette, Paris 75005", lat: 48.8527, lng: 2.3475 },
+  { category: "Food", name: "Kunafa House KL", address: "Jln Bukit Bintang, 55100 Kuala Lumpur", lat: 3.1462, lng: 101.7124 },
   // Prayer Space
   { category: "Prayer Space", name: "Seoul Central Mosque", address: "39 Usadan-ro 10-gil, Yongsan-gu, Seoul", lat: 37.5344, lng: 126.9936 },
   { category: "Prayer Space", name: "Masjid Itaewon", address: "Itaewon 1-dong, Yongsan-gu, Seoul", lat: 37.5348, lng: 126.9939 },
@@ -469,7 +469,6 @@ function calcFlightDuration(dep: string, arr: string): string | null {
 }
 
 function getPeriodOptions(categoryLabel: string): string[] {
-  if (categoryLabel === "Restaurant") return ["Breakfast", "Lunch", "Dinner"];
   if (categoryLabel === "Prayer Space") return ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
   return [];
 }
