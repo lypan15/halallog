@@ -691,6 +691,20 @@ export default function TripDetailPage() {
   }, [tripStart, tripEnd]);
 
   const totalBudget = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+
+  // Map a cost item to its trip day index (or null → "Other" group).
+  const costDayIndex = (item: BudgetItem): number | null => {
+    const m = /^Day (\d+)$/.exec(item.date);
+    if (m) return Number(m[1]) - 1;
+    const i = dayDates.findIndex((d) => formatDate(d) === item.date);
+    return i >= 0 ? i : null;
+  };
+  const costDayGroups = dayDates
+    .map((_, i) => ({ i, items: budgetItems.filter((b) => costDayIndex(b) === i) }))
+    .filter((g) => g.items.length > 0);
+  const costGroupedIds = new Set(costDayGroups.flatMap((g) => g.items.map((b) => b.id)));
+  const costOtherItems = budgetItems.filter((b) => !costGroupedIds.has(b.id));
+
   const dayPlaces = placesByDay[currentDayIndex] ?? [];
   const noteText = notesByDay[currentDayIndex] ?? "";
 
@@ -1136,9 +1150,11 @@ export default function TripDetailPage() {
   const addBudgetItem = () => {
     const amount = Number(budgetAmount);
     if (!amount || !budgetDay) return;
+    const dayNum = /^Day (\d+)$/.exec(budgetDay);
+    const isoDate = dayNum && dayDates[Number(dayNum[1]) - 1] ? formatDate(dayDates[Number(dayNum[1]) - 1]) : budgetDay;
     setBudgetItems((prev) => [
       ...prev,
-      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: budgetDay, currencyCode: budgetCurrency },
+      { id: `${Date.now()}`, category: budgetCategory, subcategory: budgetSubcategory, amount, date: isoDate, currencyCode: budgetCurrency },
     ]);
     setBudgetAmount("");
     setBudgetDay("");
@@ -1976,16 +1992,45 @@ export default function TripDetailPage() {
                   </button>
                 </div>
 
-                <div className="space-y-2">
-                  {budgetItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
-                      <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory} · {item.date}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-[--color-text]">{item.currencyCode ?? "USD"} {item.amount.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {budgetItems.length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
+                <div className="space-y-3">
+                  {budgetItems.length === 0 ? (
+                    <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>
+                  ) : (
+                    <>
+                      {costDayGroups.map(({ i, items }) => (
+                        <div key={i} className="space-y-2">
+                          <div className="flex items-center justify-between px-1">
+                            <p className="text-xs font-semibold text-[--color-text-muted]">Day {i + 1} · {fmtDayTab(dayDates[i])}</p>
+                            <p className="text-xs font-semibold text-[--color-text]">{getCurrencySymbol(budgetCurrency)}{items.reduce((s, b) => s + b.amount, 0).toLocaleString()}</p>
+                          </div>
+                          {items.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
+                              <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-[--color-text]">{item.currencyCode ?? "USD"} {item.amount.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      {costOtherItems.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between px-1">
+                            <p className="text-xs font-semibold text-[--color-text-muted]">Other</p>
+                            <p className="text-xs font-semibold text-[--color-text]">{getCurrencySymbol(budgetCurrency)}{costOtherItems.reduce((s, b) => s + b.amount, 0).toLocaleString()}</p>
+                          </div>
+                          {costOtherItems.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between rounded-lg border border-[--color-border] bg-[--color-background] px-3 py-2 text-sm">
+                              <p className="text-[--color-text]">{getCategoryIcon(item.category)} {item.subcategory}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-[--color-text]">{item.currencyCode ?? "USD"} {item.amount.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-[--color-border] bg-[--color-background] p-3">
