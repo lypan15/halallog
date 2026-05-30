@@ -40,7 +40,7 @@ import { formatDate, formatDateLabel as fmtDateLabel } from "@/lib/date-utils";
 import { Calendar, SHORT_MONTHS } from "@/components/Calendar";
 
 // ── Types ──────────────────────────────────────────────────────────────
-type TripTab = "summary" | "essential" | "itinerary" | "budget" | "checklist";
+type TripTab = "summary" | "essential" | "day_plan" | "budget" | "checklist";
 type BudgetItem = TripBudgetItem;
 type PlaceItem = TripPlace;
 type ChecklistItem = TripChecklistItem;
@@ -48,8 +48,8 @@ type ChecklistItem = TripChecklistItem;
 // ── Constants ──────────────────────────────────────────────────────────
 const TRIP_TABS: Array<{ id: TripTab; label: string }> = [
   { id: "summary", label: "Summary" },
-  { id: "essential", label: "Essential Info" },
-  { id: "itinerary", label: "Itinerary" },
+  { id: "essential", label: "Most Used" },
+  { id: "day_plan", label: "Day Plan" },
   { id: "budget", label: "Budget" },
   { id: "checklist", label: "Checklist" },
 ];
@@ -144,6 +144,79 @@ const TRANSPORT_ICON_MAP: Record<string, string> = {
   Train: "🚂", Car: "🚗", Bus: "🚌", Ferry: "⛴️", Cruise: "🚢", Taxi: "🚕",
 };
 
+const AIRLINES: { name: string; iata: string }[] = [
+  { name: "Korean Air", iata: "KE" },
+  { name: "Asiana Airlines", iata: "OZ" },
+  { name: "Jeju Air", iata: "7C" },
+  { name: "Jin Air", iata: "LJ" },
+  { name: "T'way Air", iata: "TW" },
+  { name: "Air Seoul", iata: "RS" },
+  { name: "Emirates", iata: "EK" },
+  { name: "Qatar Airways", iata: "QR" },
+  { name: "Etihad Airways", iata: "EY" },
+  { name: "Turkish Airlines", iata: "TK" },
+  { name: "Saudi Arabian Airlines", iata: "SV" },
+  { name: "flydubai", iata: "FZ" },
+  { name: "Air Arabia", iata: "G9" },
+  { name: "Royal Jordanian", iata: "RJ" },
+  { name: "Gulf Air", iata: "GF" },
+  { name: "Oman Air", iata: "WY" },
+  { name: "Pakistan International Airlines", iata: "PK" },
+  { name: "EgyptAir", iata: "MS" },
+  { name: "Singapore Airlines", iata: "SQ" },
+  { name: "Scoot", iata: "TR" },
+  { name: "Cathay Pacific", iata: "CX" },
+  { name: "Hong Kong Airlines", iata: "HX" },
+  { name: "Japan Airlines", iata: "JL" },
+  { name: "All Nippon Airways", iata: "NH" },
+  { name: "Peach Aviation", iata: "MM" },
+  { name: "Air China", iata: "CA" },
+  { name: "China Eastern Airlines", iata: "MU" },
+  { name: "China Southern Airlines", iata: "CZ" },
+  { name: "China Airlines", iata: "CI" },
+  { name: "Hainan Airlines", iata: "HU" },
+  { name: "EVA Air", iata: "BR" },
+  { name: "Malaysia Airlines", iata: "MH" },
+  { name: "AirAsia", iata: "AK" },
+  { name: "Thai Airways", iata: "TG" },
+  { name: "Vietnam Airlines", iata: "VN" },
+  { name: "Garuda Indonesia", iata: "GA" },
+  { name: "Lion Air", iata: "JT" },
+  { name: "Batik Air", iata: "ID" },
+  { name: "Philippine Airlines", iata: "PR" },
+  { name: "Cebu Pacific", iata: "5J" },
+  { name: "Air India", iata: "AI" },
+  { name: "IndiGo", iata: "6E" },
+  { name: "SpiceJet", iata: "SG" },
+  { name: "Air New Zealand", iata: "NZ" },
+  { name: "Qantas", iata: "QF" },
+  { name: "British Airways", iata: "BA" },
+  { name: "Lufthansa", iata: "LH" },
+  { name: "Air France", iata: "AF" },
+  { name: "KLM", iata: "KL" },
+  { name: "Swiss International Air Lines", iata: "LX" },
+  { name: "Austrian Airlines", iata: "OS" },
+  { name: "Finnair", iata: "AY" },
+  { name: "SAS Scandinavian Airlines", iata: "SK" },
+  { name: "TAP Air Portugal", iata: "TP" },
+  { name: "Iberia", iata: "IB" },
+  { name: "Aeroflot", iata: "SU" },
+  { name: "El Al Israel Airlines", iata: "LY" },
+  { name: "Ethiopian Airlines", iata: "ET" },
+  { name: "Kenya Airways", iata: "KQ" },
+  { name: "Royal Air Maroc", iata: "AT" },
+  { name: "United Airlines", iata: "UA" },
+  { name: "American Airlines", iata: "AA" },
+  { name: "Delta Air Lines", iata: "DL" },
+  { name: "Southwest Airlines", iata: "WN" },
+  { name: "Air Canada", iata: "AC" },
+  { name: "WestJet", iata: "WS" },
+  { name: "Aeromexico", iata: "AM" },
+  { name: "LATAM Airlines", iata: "LA" },
+  { name: "Avianca", iata: "AV" },
+  { name: "Copa Airlines", iata: "CM" },
+];
+
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function fmtDayTab(d: Date) {
@@ -158,6 +231,12 @@ function formatDayHeader(dateStr: string): string {
 
 function getCategoryIcon(cat: string): string {
   return cat.split(" ")[0] ?? "";
+}
+
+function getPeriodOptions(categoryLabel: string): string[] {
+  if (categoryLabel === "Restaurant") return ["Breakfast", "Lunch", "Dinner"];
+  if (categoryLabel === "Activity") return ["Tour", "Activity", "Show"];
+  return ["Morning", "Afternoon", "Evening"];
 }
 
 type TimelineItem = { id: string; time: string; icon: string; line1: string; line2?: string; line3?: string };
@@ -175,7 +254,9 @@ function buildTimeline(info: EssentialInfo): TimelineGroup[] {
     add(f.departureDate, {
       id: f.id, time: f.departureTime, icon: "✈️",
       line1: [f.from, f.to].filter(Boolean).join(" → ") || "Flight",
-      line2: [f.flightNumber, f.airline].filter(Boolean).join(" · ") || undefined,
+      line2: f.airline && f.flightNumber
+        ? `${f.airline} (${f.flightNumber})`
+        : (f.airline || f.flightNumber || undefined),
       line3: f.arrivalTime ? `Arrival: ${f.arrivalTime}` : undefined,
     });
   }
@@ -241,7 +322,7 @@ export default function TripDetailPage() {
   // Combined trip edit popup (name + dates)
   const [showEditPopup, setShowEditPopup] = useState(false);
 
-  // Essential Info
+  // Most Used
   const [essentialInfo, setEssentialInfo] = useState<EssentialInfo>(
     detail.essentialInfo ?? { flights: [], stays: [], transports: [] }
   );
@@ -251,12 +332,18 @@ export default function TripDetailPage() {
   const [draftFlight, setDraftFlight] = useState(emptyFlight());
   const [draftStay, setDraftStay] = useState(emptyStay());
   const [draftTransport, setDraftTransport] = useState(emptyTransport());
+  const [airlineSearch, setAirlineSearch] = useState("");
+  const [airlineDropdownOpen, setAirlineDropdownOpen] = useState(false);
+  const [flightIataPrefix, setFlightIataPrefix] = useState("");
+  const [flightNumberSuffix, setFlightNumberSuffix] = useState("");
 
-  // Itinerary quick-add
+  // Day Plan quick-add
   const [memoFocused, setMemoFocused] = useState(false);
   const [fabCategory, setFabCategory] = useState<{ label: string; icon: string } | null>(null);
   const [fabInput, setFabInput] = useState("");
   const [fabNoteBody, setFabNoteBody] = useState("");
+  const [fabPeriod, setFabPeriod] = useState("");
+  const [fabOthersNote, setFabOthersNote] = useState("");
   const fabInputRef = useRef<HTMLInputElement>(null);
   const fabTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -285,7 +372,7 @@ export default function TripDetailPage() {
   const nameValue = tripMeta?.tripName ?? tripMeta?.title ??
     tripId.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  // Day dates array for Itinerary tabs
+  // Day dates array for Day Plan tabs
   const dayDates = useMemo(() => {
     const start = new Date(tripStart + "T00:00:00");
     const end = new Date(tripEnd + "T00:00:00");
@@ -333,6 +420,15 @@ export default function TripDetailPage() {
     }
   }, [fabCategory]);
 
+  useEffect(() => {
+    if (!showFlightForm) {
+      setAirlineSearch("");
+      setAirlineDropdownOpen(false);
+      setFlightIataPrefix("");
+      setFlightNumberSuffix("");
+    }
+  }, [showFlightForm]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
   const saveTripEdit = (newName: string, start: string, end: string) => {
     if (!tripMeta) return;
@@ -359,10 +455,19 @@ export default function TripDetailPage() {
       ...prev,
       [currentDayIndex]: [
         ...(prev[currentDayIndex] ?? []),
-        { id: `${Date.now()}`, name: fabInput.trim(), category: fabCategory.label, icon: fabCategory.icon },
+        {
+          id: `${Date.now()}`,
+          name: fabInput.trim(),
+          category: fabCategory.label,
+          icon: fabCategory.icon,
+          ...(fabPeriod ? { period: fabPeriod } : {}),
+          ...(fabOthersNote.trim() ? { noteBody: fabOthersNote.trim() } : {}),
+        },
       ],
     }));
     setFabInput("");
+    setFabPeriod("");
+    setFabOthersNote("");
     setFabCategory(null);
   };
 
@@ -450,6 +555,14 @@ export default function TripDetailPage() {
     const subs = BUDGET_CATEGORY_MAP[budgetCategory];
     setBudgetSubcategory(subs.length > 0 ? subs[0] : "");
   };
+
+  const filteredAirlines = airlineSearch.trim()
+    ? AIRLINES.filter(
+        (a) =>
+          a.name.toLowerCase().includes(airlineSearch.toLowerCase()) ||
+          a.iata.toLowerCase().includes(airlineSearch.toLowerCase())
+      ).slice(0, 8)
+    : [];
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
@@ -541,7 +654,7 @@ export default function TripDetailPage() {
           </div>
         )}
 
-        {/* ── Essential Info ── */}
+        {/* ── Most Used ── */}
         {activeTab === "essential" && (
           <div className="space-y-5">
             <div className="flex gap-2">
@@ -574,12 +687,85 @@ export default function TripDetailPage() {
                       <input type={type} value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                     </div>
                   ))}
-                  {[["Airline", "airline", "Korean Air"], ["Flight number", "flightNumber", "KE703"]].map(([lbl, key, ph]) => (
-                    <div key={key}>
-                      <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
-                      <input value={(draftFlight as never)[key]} onChange={(e) => setDraftFlight((p) => ({ ...p, [key]: e.target.value }))} placeholder={ph} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  {/* Airline autocomplete */}
+                  <div className="relative">
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Airline</label>
+                    <input
+                      value={airlineSearch}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAirlineSearch(val);
+                        setAirlineDropdownOpen(true);
+                        setDraftFlight((p) => ({ ...p, airline: val }));
+                      }}
+                      onFocus={() => setAirlineDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setAirlineDropdownOpen(false), 150)}
+                      placeholder="Korean Air"
+                      autoComplete="off"
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                    {airlineDropdownOpen && filteredAirlines.length > 0 && (
+                      <div className="absolute left-0 right-0 z-10 mt-1 max-h-44 overflow-y-auto rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                        {filteredAirlines.map((a) => (
+                          <button
+                            key={a.iata}
+                            type="button"
+                            onMouseDown={() => {
+                              setAirlineSearch(a.name);
+                              setFlightIataPrefix(a.iata);
+                              setDraftFlight((p) => ({
+                                ...p,
+                                airline: a.name,
+                                flightNumber: a.iata + flightNumberSuffix,
+                              }));
+                              setAirlineDropdownOpen(false);
+                            }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-[--color-surface]"
+                          >
+                            <span className="text-[--color-text]">{a.name}</span>
+                            <span className="ml-3 shrink-0 text-xs font-semibold text-[--color-text-muted]">{a.iata}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Flight number with IATA prefix */}
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Flight number</label>
+                    <div className="flex overflow-hidden rounded border border-[--color-border]">
+                      {flightIataPrefix && (
+                        <span className="flex shrink-0 items-center border-r border-[--color-border] bg-[--color-surface] px-2 text-sm font-semibold text-[--color-text]">
+                          {flightIataPrefix}
+                        </span>
+                      )}
+                      <input
+                        value={flightNumberSuffix}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const val = flightIataPrefix ? raw.replace(/\D/g, "") : raw.toUpperCase();
+                          setFlightNumberSuffix(val);
+                          setDraftFlight((p) => ({ ...p, flightNumber: flightIataPrefix + val }));
+                        }}
+                        placeholder={flightIataPrefix ? "706" : "KE703"}
+                        className="w-full bg-transparent px-2 py-1.5 text-sm outline-none"
+                      />
                     </div>
-                  ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-[--color-border] pt-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[--color-border] px-3 py-2 text-xs text-[--color-text-muted] transition-colors hover:border-[#2d6a4f] hover:text-[#2d6a4f]">
+                    <span>📎</span>
+                    <span className="flex-1 truncate">{draftFlight.attachmentName ?? "Attach file (PDF / image)"}</span>
+                    {draftFlight.attachmentName && (
+                      <button type="button" onClick={(e) => { e.preventDefault(); setDraftFlight((p) => ({ ...p, attachmentName: undefined })); }} className="text-[#c4704a]">✕</button>
+                    )}
+                    <input type="file" accept="image/*,.pdf" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setDraftFlight((p) => ({ ...p, attachmentName: f.name })); }} />
+                  </label>
+                  <button type="button" disabled className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-[--color-border] px-3 py-2 text-xs opacity-60">
+                    <span>✉️</span>
+                    <span className="flex-1 text-left text-[--color-text-muted]">Import from Gmail</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Premium</span>
+                  </button>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={saveFlight} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
@@ -594,7 +780,13 @@ export default function TripDetailPage() {
                   <div key={f.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
                     <div>
                       <p className="text-sm font-medium text-[--color-text]">✈️ {[f.from, f.to].filter(Boolean).join(" → ") || "Flight"}</p>
-                      {(f.flightNumber || f.airline) && <p className="text-xs text-[--color-text-muted]">{[f.flightNumber, f.airline].filter(Boolean).join(" · ")}</p>}
+                      {(f.flightNumber || f.airline) && (
+                        <p className="text-xs text-[--color-text-muted]">
+                          {f.airline && f.flightNumber
+                            ? `${f.airline} (${f.flightNumber})`
+                            : f.airline || f.flightNumber}
+                        </p>
+                      )}
                       {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {f.departureTime}{f.arrivalDate && f.arrivalDate !== f.departureDate ? ` → ${f.arrivalDate}` : ""} {f.arrivalTime}</p>}
                     </div>
                     <button type="button" onClick={() => deleteFlight(f.id)} className="text-xs text-[#c4704a]">✕</button>
@@ -625,6 +817,21 @@ export default function TripDetailPage() {
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Address</label>
                     <input value={draftStay.address} onChange={(e) => setDraftStay((p) => ({ ...p, address: e.target.value }))} placeholder="Address" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                   </div>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-[--color-border] pt-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[--color-border] px-3 py-2 text-xs text-[--color-text-muted] transition-colors hover:border-[#2d6a4f] hover:text-[#2d6a4f]">
+                    <span>📎</span>
+                    <span className="flex-1 truncate">{draftStay.attachmentName ?? "Attach file (PDF / image)"}</span>
+                    {draftStay.attachmentName && (
+                      <button type="button" onClick={(e) => { e.preventDefault(); setDraftStay((p) => ({ ...p, attachmentName: undefined })); }} className="text-[#c4704a]">✕</button>
+                    )}
+                    <input type="file" accept="image/*,.pdf" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setDraftStay((p) => ({ ...p, attachmentName: f.name })); }} />
+                  </label>
+                  <button type="button" disabled className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-[--color-border] px-3 py-2 text-xs opacity-60">
+                    <span>✉️</span>
+                    <span className="flex-1 text-left text-[--color-text-muted]">Import from Gmail</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Premium</span>
+                  </button>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={saveStay} className="rounded-lg bg-[#2d6a4f] px-4 py-2 text-sm font-medium text-white">Save</button>
@@ -701,8 +908,8 @@ export default function TripDetailPage() {
           </div>
         )}
 
-        {/* ── Itinerary ── */}
-        {activeTab === "itinerary" && (
+        {/* ── Day Plan ── */}
+        {activeTab === "day_plan" && (
           <div className="space-y-4">
             {/* Day tabs — two-line format */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
@@ -734,6 +941,8 @@ export default function TripDetailPage() {
                     setFabCategory(fabCategory?.label === cat.label ? null : cat);
                     setFabInput("");
                     setFabNoteBody("");
+                    setFabPeriod("");
+                    setFabOthersNote("");
                   }}
                   className={[
                     "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
@@ -749,18 +958,47 @@ export default function TripDetailPage() {
 
             {/* Inline input for selected category */}
             {fabCategory && fabCategory.label !== "Note" && (
-              <div className="flex gap-2 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
-                <span className="text-base">{fabCategory.icon}</span>
+              <div className="space-y-2.5 rounded-lg border border-[#2d6a4f] bg-[--color-background] p-3">
+                <div className="flex gap-2">
+                  <span className="text-base">{fabCategory.icon}</span>
+                  <input
+                    ref={fabInputRef}
+                    value={fabInput}
+                    onChange={(e) => setFabInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addFabPlace()}
+                    placeholder={`${fabCategory.label} name`}
+                    className="flex-1 bg-transparent text-sm outline-none"
+                  />
+                </div>
+                {/* Period chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  {getPeriodOptions(fabCategory.label).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setFabPeriod(fabPeriod === opt ? "" : opt)}
+                      className={[
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        fabPeriod === opt
+                          ? "border-[#2d6a4f] bg-[#2d6a4f] text-white"
+                          : "border-[--color-border] text-[--color-text-muted] hover:border-[#2d6a4f]",
+                      ].join(" ")}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {/* Others free-text */}
                 <input
-                  ref={fabInputRef}
-                  value={fabInput}
-                  onChange={(e) => setFabInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addFabPlace()}
-                  placeholder={`${fabCategory.label} name`}
-                  className="flex-1 bg-transparent text-sm outline-none"
+                  value={fabOthersNote}
+                  onChange={(e) => setFabOthersNote(e.target.value)}
+                  placeholder="Others (optional note)"
+                  className="w-full rounded border border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-xs outline-none focus:border-[#2d6a4f]"
                 />
-                <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">Add</button>
-                <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={addFabPlace} className="rounded bg-[#2d6a4f] px-3 py-1 text-xs text-white">Add</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabPeriod(""); setFabOthersNote(""); }} className="rounded border border-[--color-border] px-3 py-1 text-xs text-[--color-text-muted]">✕</button>
+                </div>
               </div>
             )}
 
@@ -786,7 +1024,7 @@ export default function TripDetailPage() {
                 />
                 <div className="flex gap-2">
                   <button type="button" onClick={addFabNote} className="rounded bg-[#2d6a4f] px-3 py-1.5 text-xs text-white">Add</button>
-                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabNoteBody(""); }} className="rounded border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text-muted]">Cancel</button>
+                  <button type="button" onClick={() => { setFabCategory(null); setFabInput(""); setFabNoteBody(""); setFabPeriod(""); setFabOthersNote(""); }} className="rounded border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text-muted]">Cancel</button>
                 </div>
               </div>
             )}
@@ -833,7 +1071,7 @@ export default function TripDetailPage() {
         {activeTab === "budget" && (
           <div className="space-y-4">
             {showStats ? (
-              <BudgetStats items={budgetItems} total={totalBudget} onBack={() => setShowStats(false)} />
+              <BudgetStats items={budgetItems} total={totalBudget} currency={budgetCurrency} onBack={() => setShowStats(false)} />
             ) : (
               <>
                 <div className="flex items-center justify-between rounded-lg bg-[#2d6a4f] px-4 py-3 text-white">
@@ -1035,7 +1273,19 @@ function SortablePlaceCard({
         </select>
       )}
 
-      <p className="flex-1 truncate text-sm font-medium text-[--color-text]">{place.icon} {place.name}</p>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <p className="truncate text-sm font-medium text-[--color-text]">{place.icon} {place.name}</p>
+        {(place.period || place.noteBody) && (
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {place.period && (
+              <span className="rounded-full bg-[#2d6a4f]/10 px-2 py-0.5 text-[10px] font-medium text-[#2d6a4f]">{place.period}</span>
+            )}
+            {place.noteBody && (
+              <span className="truncate text-[10px] text-[--color-text-muted]">{place.noteBody}</span>
+            )}
+          </div>
+        )}
+      </div>
       <button type="button" onClick={() => onRemove(place.id)} className="shrink-0 text-sm text-[--color-text-muted] hover:text-[#c4704a]">✕</button>
     </div>
   );
@@ -1058,11 +1308,25 @@ function ChecklistSection({ title, items, onToggle }: { title: string; items: Ch
   );
 }
 
-function BudgetStats({ items, total, onBack }: { items: BudgetItem[]; total: number; onBack: () => void }) {
+function BudgetStats({ items, total, currency, onBack }: { items: BudgetItem[]; total: number; currency: string; onBack: () => void }) {
   const categoryTotals = items.reduce<Record<string, number>>((acc, item) => {
     acc[item.category] = (acc[item.category] ?? 0) + item.amount;
     return acc;
   }, {});
+
+  const entries = Object.entries(categoryTotals);
+  const CHART_COLORS = ["#2d6a4f", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#6b7280"];
+  const sym = getCurrencySymbol(currency);
+
+  const r = 44;
+  const circumference = 2 * Math.PI * r;
+  let cumOffset = 0;
+  const segments = entries.map(([cat, amount], i) => {
+    const seg = total > 0 ? (amount / total) * circumference : 0;
+    const startOffset = cumOffset;
+    cumOffset += seg;
+    return { cat, amount, seg, startOffset, color: CHART_COLORS[i % CHART_COLORS.length] };
+  });
 
   return (
     <div className="space-y-4">
@@ -1070,20 +1334,53 @@ function BudgetStats({ items, total, onBack }: { items: BudgetItem[]; total: num
         <button type="button" onClick={onBack} className="rounded-lg border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text-muted] hover:border-[#2d6a4f] hover:text-[#2d6a4f] transition-colors">← Budget</button>
         <p className="font-semibold text-[--color-text]">Spending by Category</p>
       </div>
-      <div className="space-y-3">
-        {Object.entries(categoryTotals).map(([cat, amount]) => (
-          <div key={cat} className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <p className="text-[--color-text]">{cat}</p>
-              <p className="font-medium">${amount}</p>
-            </div>
-            <div className="h-2 rounded-full bg-[--color-border]">
-              <div className="h-2 rounded-full bg-[#2d6a4f] transition-all" style={{ width: `${total > 0 ? Math.round((amount / total) * 100) : 0}%` }} />
-            </div>
+
+      {entries.length > 0 ? (
+        <>
+          {/* Donut chart */}
+          <div className="flex justify-center py-2">
+            <svg width="160" height="160" viewBox="0 0 100 100" aria-hidden="true">
+              {/* Background ring */}
+              <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-border)" strokeWidth="12" />
+              <g transform="rotate(-90 50 50)">
+                {segments.map(({ cat, seg, startOffset, color }) => (
+                  <circle
+                    key={cat}
+                    cx="50"
+                    cy="50"
+                    r={r}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="12"
+                    strokeDasharray={`${seg} ${circumference - seg}`}
+                    strokeDashoffset={-startOffset}
+                  />
+                ))}
+              </g>
+              {/* Center labels */}
+              <text x="50" y="47" textAnchor="middle" style={{ fontSize: 7, fontWeight: 600, fill: "var(--color-text-muted)" }}>Total</text>
+              <text x="50" y="59" textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: "var(--color-text)" }}>{sym}{total}</text>
+            </svg>
           </div>
-        ))}
-        {Object.keys(categoryTotals).length === 0 && <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>}
-      </div>
+
+          {/* Category breakdown */}
+          <div className="space-y-2.5">
+            {segments.map(({ cat, amount, color }) => {
+              const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
+              return (
+                <div key={cat} className="flex items-center gap-3">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                  <p className="flex-1 truncate text-sm text-[--color-text]">{cat}</p>
+                  <p className="text-xs text-[--color-text-muted]">{pct}%</p>
+                  <p className="w-20 text-right text-sm font-medium text-[--color-text]">{sym}{amount}</p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <p className="text-center text-sm text-[--color-text-muted]">No expenses yet.</p>
+      )}
     </div>
   );
 }

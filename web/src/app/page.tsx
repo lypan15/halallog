@@ -21,7 +21,7 @@ const FEATURES = [
   {
     href: "/tour",
     icon: "✨",
-    title: "Tour",
+    title: "Explore",
   },
 ];
 

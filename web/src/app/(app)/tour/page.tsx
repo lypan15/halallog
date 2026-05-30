@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Tour",
+  title: "Explore",
 };
 
 export default function TourPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold text-[--color-text]">Tour</h1>
+        <h1 className="text-2xl font-bold text-[--color-text]">Explore</h1>
       </header>
 
       <section className="rounded-2xl border border-[--color-border] bg-[--color-surface] p-8 text-center shadow-sm">

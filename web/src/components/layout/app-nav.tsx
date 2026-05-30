@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/tour",
-    label: "Tour",
+    label: "Explore",
     icon: "✨",
   },
 ];

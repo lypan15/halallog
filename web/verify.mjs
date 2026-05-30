@@ -9,11 +9,11 @@ const shot = async (name) => {
   console.log(`v-${name}.png`);
 };
 
-// 1. Itinerary tab - day tabs two-line, quick-add buttons
+// 1. Day Plan tab - day tabs two-line, quick-add buttons
 await page.goto('http://localhost:3000/planner/seou-spring', { waitUntil: 'networkidle' });
-await page.click('button:has-text("Itinerary")');
+await page.click('button:has-text("Day Plan")');
 await page.waitForTimeout(400);
-await shot('itinerary-tabs');
+await shot('day-plan-tabs');
 
 // 2. Quick-add Prayer Space click
 await page.click('button:has-text("Prayer Space")');
@@ -50,9 +50,9 @@ await page.waitForTimeout(400);
 await shot('summary-edit-popup');
 await page.keyboard.press('Escape');
 
-// 8. Essential Info - stay with checkout visible in timeline
+// 8. Most Used - stay with checkout visible in timeline
 await page.goto('http://localhost:3000/planner/seou-spring', { waitUntil: 'networkidle' });
-await page.click('button:has-text("Essential Info")');
+await page.click('button:has-text("Most Used")');
 await page.click('button:has-text("+ Stay")');
 await page.waitForTimeout(300);
 await page.fill('input[placeholder="Hotel Name"]', 'Tokyo Palace Hotel');

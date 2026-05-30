@@ -42,7 +42,7 @@ export default function PlannerPage() {
 
       <div className="rounded-xl border border-dashed border-[--color-border] bg-[--color-surface] p-5 text-center">
         <p className="text-sm text-[--color-text-muted]">
-          Keep your itinerary simple: flights, halal food spots, and prayer-friendly stops.
+          Keep your day plan simple: flights, halal food spots, and prayer-friendly stops.
         </p>
       </div>
     </div>

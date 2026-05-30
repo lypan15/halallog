@@ -15,9 +15,9 @@ for (const [url, file] of shots) {
   console.log('Saved', file);
 }
 
-// Essential Info tab
+// Most Used tab
 await page.goto('http://localhost:3000/planner/seou-spring', { waitUntil: 'networkidle', timeout: 15000 });
-await page.click('button:has-text("Essential Info")');
+await page.click('button:has-text("Most Used")');
 await page.waitForTimeout(400);
 await page.screenshot({ path: 'shot-essential.png', fullPage: true });
 console.log('Saved shot-essential.png');
@@ -28,12 +28,12 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: 'shot-flight-form.png', fullPage: true });
 console.log('Saved shot-flight-form.png');
 
-// Itinerary tab
+// Day Plan tab
 await page.goto('http://localhost:3000/planner/seou-spring', { waitUntil: 'networkidle', timeout: 15000 });
-await page.click('button:has-text("Itinerary")');
+await page.click('button:has-text("Day Plan")');
 await page.waitForTimeout(400);
-await page.screenshot({ path: 'shot-itinerary.png', fullPage: true });
-console.log('Saved shot-itinerary.png');
+await page.screenshot({ path: 'shot-day-plan.png', fullPage: true });
+console.log('Saved shot-day-plan.png');
 
 // FAB click
 await page.click('button:has-text("+")');
