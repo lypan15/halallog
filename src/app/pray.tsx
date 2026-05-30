@@ -75,7 +75,7 @@ export default function PrayScreen() {
         ]}>
         <View style={styles.inner}>
           <ThemedText type="subtitle" style={styles.pageTitle}>
-            알림 설정
+            Pray
           </ThemedText>
 
           {/* Master toggle */}
@@ -97,7 +97,10 @@ export default function PrayScreen() {
           <ThemedView type="backgroundElement" style={styles.prayerCard}>
             {PRAYER_KEYS.map((prayer, index) => {
               const setting = prayers[prayer];
-              const active = setting.enabled;
+              // Visually OFF when master is off; real state shown when master is on
+              const displayValue = masterEnabled ? setting.enabled : false;
+              // Chips only active when master ON and this prayer ON
+              const showChips = masterEnabled && setting.enabled;
               const customMinutes = setting.selectedMinutes.filter(
                 (m) => !(PRESET_MINUTES as readonly number[]).includes(m)
               );
@@ -113,14 +116,14 @@ export default function PrayScreen() {
                   <View style={[styles.row, styles.prayerRow]}>
                     <ThemedText type="default">{PRAYER_LABELS[prayer]}</ThemedText>
                     <Switch
-                      value={active}
-                      onValueChange={(val) => setPrayerEnabled(prayer, val)}
+                      value={displayValue}
+                      onValueChange={() => setPrayerEnabled(prayer, !setting.enabled)}
                       trackColor={{ true: '#22c55e', false: theme.backgroundSelected }}
                       thumbColor={Platform.OS === 'android' ? '#ffffff' : undefined}
                     />
                   </View>
 
-                  {active && (
+                  {showChips && (
                     <View style={styles.chipsRow}>
                       {PRESET_MINUTES.map((min) => {
                         const selected = setting.selectedMinutes.includes(min);
