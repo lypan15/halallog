@@ -65,6 +65,7 @@ const QUICK_ADD_CATEGORIES = [
   { label: "Train", icon: "🚂" },
   { label: "Bus", icon: "🚌" },
   { label: "Ferry", icon: "⛴️" },
+  { label: "Custom", icon: "📌" },
 ];
 
 const QUICK_ADD = [
@@ -570,6 +571,7 @@ export default function TripDetailPage() {
   const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
   const [editingStayId, setEditingStayId] = useState<string | null>(null);
+  const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
   const [returnToSummaryAfterEdit, setReturnToSummaryAfterEdit] = useState(false);
   const [summaryConfirmDelete, setSummaryConfirmDelete] = useState<TimelineItem | null>(null);
@@ -716,6 +718,28 @@ export default function TripDetailPage() {
       setShowFlightForm(true);
       setShowStayForm(false);
       setShowTransportForm(false);
+      setReturnToSummaryAfterEdit(true);
+      setActiveTab("essential");
+    } else if (item.itemType === "stay") {
+      const stay = essentialInfo.stays.find((s) => s.id === item.sourceId);
+      if (!stay) return;
+      const { id, ...fields } = stay;
+      setDraftStay(fields);
+      setEditingStayId(id);
+      setShowStayForm(true);
+      setShowFlightForm(false);
+      setShowTransportForm(false);
+      setReturnToSummaryAfterEdit(true);
+      setActiveTab("essential");
+    } else if (item.itemType === "transport") {
+      const transport = essentialInfo.transports.find((t) => t.id === item.sourceId);
+      if (!transport) return;
+      const { id, ...fields } = transport;
+      setDraftTransport(fields);
+      setEditingTransportId(id);
+      setShowTransportForm(true);
+      setShowFlightForm(false);
+      setShowStayForm(false);
       setReturnToSummaryAfterEdit(true);
       setActiveTab("essential");
     } else if (item.itemType === "dayplan" && item.dayIndex !== undefined) {
@@ -953,11 +977,27 @@ export default function TripDetailPage() {
     }
     setDraftStay(emptyStay());
     setShowStayForm(false);
+    if (returnToSummaryAfterEdit) {
+      setReturnToSummaryAfterEdit(false);
+      setActiveTab("summary");
+    }
   };
   const saveTransport = () => {
-    setEssentialInfo((prev) => ({ ...prev, transports: [...prev.transports, { id: `${Date.now()}`, ...draftTransport }] }));
+    if (editingTransportId) {
+      setEssentialInfo((prev) => ({
+        ...prev,
+        transports: prev.transports.map((t) => t.id === editingTransportId ? { id: t.id, ...draftTransport } : t),
+      }));
+      setEditingTransportId(null);
+    } else {
+      setEssentialInfo((prev) => ({ ...prev, transports: [...prev.transports, { id: `${Date.now()}`, ...draftTransport }] }));
+    }
     setDraftTransport(emptyTransport());
     setShowTransportForm(false);
+    if (returnToSummaryAfterEdit) {
+      setReturnToSummaryAfterEdit(false);
+      setActiveTab("summary");
+    }
   };
   const deleteFlight = (id: string) => setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
   const deleteStay = (id: string) => setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
@@ -1538,11 +1578,27 @@ export default function TripDetailPage() {
               <div className="space-y-2">
                 {essentialInfo.transports.map((t) => (
                   <div key={t.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[--color-text]">{TRANSPORT_ICON_MAP[t.type] ?? "🚌"} {[t.from, t.to].filter(Boolean).join(" → ") || t.type}</p>
                       {t.date && <p className="text-xs text-[--color-text-muted]">{t.date} {t.time}</p>}
                     </div>
-                    <button type="button" onClick={() => deleteTransport(t.id)} className="text-xs text-[#c4704a]">✕</button>
+                    <div className="ml-2 flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const { id, ...fields } = t;
+                          setDraftTransport(fields);
+                          setEditingTransportId(id);
+                          setShowTransportForm(true);
+                          setShowFlightForm(false);
+                          setShowStayForm(false);
+                        }}
+                        className="text-xs text-[#2d6a4f] hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => deleteTransport(t.id)} className="text-xs text-[#c4704a]">✕</button>
+                    </div>
                   </div>
                 ))}
                 {!showTransportForm && (
@@ -1590,7 +1646,6 @@ export default function TripDetailPage() {
                   onClick={() => {
                     setFabCategory(fabCategory?.label === cat.label ? null : cat);
                     setFabInput("");
-                    setFabNoteBody("");
                     setFabPeriod("");
                     setFabOthersNote("");
                     setFabActivitySubType("Activity");
