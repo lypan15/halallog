@@ -30,7 +30,6 @@ import {
   type EssentialInfo,
   type FlightItem,
   type StayItem,
-  type TransportItem,
   type TripBudgetItem,
   type TripChecklistItem,
   type TripPlace,
@@ -304,9 +303,6 @@ const TRANSPORT_TYPES = [
   { type: "Train", icon: "🚂" }, { type: "Car", icon: "🚗" }, { type: "Bus", icon: "🚌" },
   { type: "Ferry", icon: "⛴️" }, { type: "Cruise", icon: "🚢" }, { type: "Taxi", icon: "🚕" },
 ];
-const TRANSPORT_ICON_MAP: Record<string, string> = {
-  Train: "🚂", Car: "🚗", Bus: "🚌", Ferry: "⛴️", Cruise: "🚢", Taxi: "🚕",
-};
 
 const AIRLINES: { name: string; iata: string }[] = [
   { name: "Korean Air", iata: "KE" },
@@ -568,9 +564,6 @@ const emptyFlight = (): Omit<FlightItem, "id"> => ({
 const emptyStay = (): Omit<StayItem, "id"> => ({
   propertyName: "", checkInDate: "", checkInTime: "15:00",
   checkOutDate: "", checkOutTime: "11:00", address: "",
-});
-const emptyTransport = (): Omit<TransportItem, "id"> => ({
-  type: "Train", from: "", to: "", date: "", time: "",
 });
 
 // ── Main Component ─────────────────────────────────────────────────────
