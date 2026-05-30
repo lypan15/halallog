@@ -170,6 +170,19 @@ function addDaysToDate(dateStr: string, days: number): string {
   return yyyy + "-" + mm + "-" + dd;
 }
 
+function formatTime12h(time: string): string {
+  if (!time) return "";
+  const parts = time.split(":");
+  if (parts.length < 2) return time;
+  const h = parseInt(parts[0], 10);
+  const m = parts[1];
+  if (isNaN(h)) return time;
+  const period = h < 12 ? "AM" : "PM";
+  let h12 = h % 12;
+  if (h12 === 0) h12 = 12;
+  return h12 + ":" + m + " " + period;
+}
+
 function getValidationMessage(category: string): string {
   const msgs: Record<string, string> = {
     "Place": "Please enter a place name",
@@ -495,7 +508,7 @@ function buildTimeline(
       line2: f.airline && f.flightNumber
         ? `${f.airline} (${f.flightNumber})`
         : (f.airline || f.flightNumber || undefined),
-      line3: f.arrivalTime ? `Arrival: ${f.arrivalTime}` : undefined,
+      line3: f.arrivalTime ? `Arrival: ${formatTime12h(f.arrivalTime)}` : undefined,
       itemType: "flight",
       sourceId: f.id,
     });
@@ -506,7 +519,7 @@ function buildTimeline(
       add(s.checkInDate, {
         id: `${s.id}-in`, time: s.checkInTime, icon: "🏨",
         line1: s.propertyName || "Stay",
-        line2: s.checkInTime ? `Check-in ${s.checkInTime}` : "Check-in",
+        line2: s.checkInTime ? `Check-in ${formatTime12h(s.checkInTime)}` : "Check-in",
         itemType: "stay",
         sourceId: s.id,
       });
@@ -515,7 +528,7 @@ function buildTimeline(
       add(s.checkOutDate, {
         id: `${s.id}-out`, time: s.checkOutTime, icon: "🏨",
         line1: s.propertyName || "Stay",
-        line2: s.checkOutTime ? `Check-out ${s.checkOutTime}` : "Check-out",
+        line2: s.checkOutTime ? `Check-out ${formatTime12h(s.checkOutTime)}` : "Check-out",
         itemType: "stay",
         sourceId: s.id,
       });
@@ -1045,7 +1058,10 @@ export default function TripDetailPage() {
       setActiveTab("summary");
     }
   };
-  const deleteFlight = (id: string) => setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
+  const deleteFlight = (id: string) => {
+    setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
+    setBudgetItems((prev) => prev.filter((b) => b.id !== `f-${id}`));
+  };
   const deleteStay = (id: string) => setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
   const deleteTransport = (id: string) => setEssentialInfo((prev) => ({ ...prev, transports: prev.transports.filter((t) => t.id !== id) }));
 
@@ -1170,7 +1186,7 @@ export default function TripDetailPage() {
                     <p className="py-2 text-sm font-bold text-[--color-text]">{group.dateLabel}</p>
                     {group.items.map((item, idx) => (
                       <div key={item.id} className="flex gap-3">
-                        <div className="w-12 shrink-0 pt-0.5 text-right text-xs text-[--color-text-muted]">{item.time}</div>
+                        <div className="w-16 shrink-0 pt-0.5 text-right text-xs text-[--color-text-muted]">{formatTime12h(item.time)}</div>
                         <div className="flex flex-col items-center">
                           <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#2d6a4f]" />
                           {idx < group.items.length - 1 && (
@@ -1419,7 +1435,7 @@ export default function TripDetailPage() {
                               <span className="text-xs text-[--color-text-muted]">{record.airline}</span>
                             </div>
                             <p className="text-xs text-[--color-text-muted]">
-                              {record.from} → {record.to} · {record.departureTime} → {record.arrivalTime}
+                              {record.from} → {record.to} · {formatTime12h(record.departureTime)} → {formatTime12h(record.arrivalTime)}
                             </p>
                           </button>
                         ))}
@@ -1483,7 +1499,7 @@ export default function TripDetailPage() {
                             : f.airline || f.flightNumber}
                         </p>
                       )}
-                      {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {f.departureTime}{f.arrivalDate && f.arrivalDate !== f.departureDate ? ` → ${f.arrivalDate}` : ""} {f.arrivalTime}</p>}
+                      {f.departureDate && <p className="text-xs text-[--color-text-muted]">{f.departureDate} {formatTime12h(f.departureTime)}{f.arrivalDate && f.arrivalDate !== f.departureDate ? ` → ${f.arrivalDate}` : ""} {formatTime12h(f.arrivalTime)}</p>}
                     </div>
                     <div className="ml-2 flex shrink-0 items-center gap-2">
                       <button
@@ -1611,8 +1627,8 @@ export default function TripDetailPage() {
                   <div key={s.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[--color-text]">🏨 {s.propertyName || "Stay"}</p>
-                      {s.checkInDate && <p className="text-xs text-[--color-text-muted]">Check-in {s.checkInDate} {s.checkInTime}</p>}
-                      {s.checkOutDate && <p className="text-xs text-[--color-text-muted]">Check-out {s.checkOutDate} {s.checkOutTime}</p>}
+                      {s.checkInDate && <p className="text-xs text-[--color-text-muted]">Check-in {s.checkInDate} {formatTime12h(s.checkInTime)}</p>}
+                      {s.checkOutDate && <p className="text-xs text-[--color-text-muted]">Check-out {s.checkOutDate} {formatTime12h(s.checkOutTime)}</p>}
                     </div>
                     <div className="ml-2 flex shrink-0 items-center gap-2">
                       <button
@@ -1679,7 +1695,7 @@ export default function TripDetailPage() {
                   <div key={t.id} className="flex items-start justify-between rounded-lg border border-[--color-border] bg-[--color-background] p-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-[--color-text]">{TRANSPORT_ICON_MAP[t.type] ?? "🚌"} {[t.from, t.to].filter(Boolean).join(" → ") || t.type}</p>
-                      {t.date && <p className="text-xs text-[--color-text-muted]">{t.date} {t.time}</p>}
+                      {t.date && <p className="text-xs text-[--color-text-muted]">{t.date} {formatTime12h(t.time)}</p>}
                     </div>
                     <div className="ml-2 flex shrink-0 items-center gap-2">
                       <button
@@ -2145,7 +2161,7 @@ function SortablePlaceCard({
         </button>
       ) : place.duration ? (
         <div className="flex shrink-0 items-center gap-1">
-          <span className="text-xs text-[--color-text-muted]">{place.endTime || "–"}</span>
+          <span className="text-xs text-[--color-text-muted]">{place.endTime ? formatTime12h(place.endTime) : "–"}</span>
           <button type="button" onClick={() => onDurationChange(place.id, null)} className="text-xs text-[--color-text-muted] hover:text-[#c4704a]">×</button>
         </div>
       ) : (
