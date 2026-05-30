@@ -603,6 +603,10 @@ export default function TripDetailPage() {
   const initialTrip = useMemo(() => getTripById(tripId), [tripId]);
   const detail = useMemo(() => getTripDetail(tripId), [tripId]);
 
+  // localStorage-backed data differs between server (none) and client. Gate the
+  // first render so server HTML and client hydration match, then reveal after mount.
+  const [mounted, setMounted] = useState(false);
+
   const [tripMeta, setTripMeta] = useState<TripRecord | null>(initialTrip);
   const [activeTab, setActiveTab] = useState<TripTab>("summary");
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
@@ -766,6 +770,8 @@ export default function TripDetailPage() {
       setStayPriceCurrency("USD");
     }
   }, [showStayForm]);
+
+  useEffect(() => setMounted(true), []);
 
   // ── Handlers ──────────────────────────────────────────────────────────
   const saveTripEdit = (newName: string, start: string, end: string) => {
@@ -1201,6 +1207,19 @@ export default function TripDetailPage() {
     : [];
 
   // ── Render ────────────────────────────────────────────────────────────
+  // Until mounted, render a server-matching placeholder (no localStorage-derived
+  // content) to avoid a hydration mismatch.
+  if (!mounted) {
+    return (
+      <div className="space-y-4 pb-10">
+        <div className="flex items-center justify-between">
+          <Link href="/planner" className="text-sm text-[--color-text-muted]">← Back</Link>
+        </div>
+        <p className="py-10 text-center text-sm text-[--color-text-muted]">Loading trip…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 pb-10">
       {/* Header */}
