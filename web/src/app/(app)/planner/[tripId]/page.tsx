@@ -38,6 +38,7 @@ import {
 } from "@/lib/trips-storage";
 import { formatDate, formatDateLabel as fmtDateLabel } from "@/lib/date-utils";
 import { Calendar, SHORT_MONTHS } from "@/components/Calendar";
+import { FLIGHT_DB, type FlightRecord } from "@/constants/flightDatabase";
 
 // ── Types ──────────────────────────────────────────────────────────────
 type TripTab = "summary" | "essential" | "day_plan" | "budget" | "checklist";
@@ -336,6 +337,7 @@ export default function TripDetailPage() {
   const [airlineDropdownOpen, setAirlineDropdownOpen] = useState(false);
   const [flightIataPrefix, setFlightIataPrefix] = useState("");
   const [flightNumberSuffix, setFlightNumberSuffix] = useState("");
+  const [flightDbDropdownOpen, setFlightDbDropdownOpen] = useState(false);
 
   // Day Plan quick-add
   const [memoFocused, setMemoFocused] = useState(false);
@@ -426,6 +428,7 @@ export default function TripDetailPage() {
       setAirlineDropdownOpen(false);
       setFlightIataPrefix("");
       setFlightNumberSuffix("");
+      setFlightDbDropdownOpen(false);
     }
   }, [showFlightForm]);
 
@@ -562,6 +565,11 @@ export default function TripDetailPage() {
           a.name.toLowerCase().includes(airlineSearch.toLowerCase()) ||
           a.iata.toLowerCase().includes(airlineSearch.toLowerCase())
       ).slice(0, 8)
+    : [];
+
+  const fullFlightNumber = (flightIataPrefix + flightNumberSuffix).toUpperCase();
+  const flightDbMatches: FlightRecord[] = fullFlightNumber.length >= 2
+    ? FLIGHT_DB.filter((r) => r.flightNumber.toUpperCase().startsWith(fullFlightNumber)).slice(0, 5)
     : [];
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -729,8 +737,8 @@ export default function TripDetailPage() {
                       </div>
                     )}
                   </div>
-                  {/* Flight number with IATA prefix */}
-                  <div>
+                  {/* Flight number with IATA prefix + DB autocomplete */}
+                  <div className="relative">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Flight number</label>
                     <div className="flex overflow-hidden rounded border border-[--color-border]">
                       {flightIataPrefix && (
@@ -745,11 +753,52 @@ export default function TripDetailPage() {
                           const val = flightIataPrefix ? raw.replace(/\D/g, "") : raw.toUpperCase();
                           setFlightNumberSuffix(val);
                           setDraftFlight((p) => ({ ...p, flightNumber: flightIataPrefix + val }));
+                          setFlightDbDropdownOpen(true);
                         }}
+                        onFocus={() => setFlightDbDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setFlightDbDropdownOpen(false), 150)}
                         placeholder={flightIataPrefix ? "706" : "KE703"}
+                        autoComplete="off"
                         className="w-full bg-transparent px-2 py-1.5 text-sm outline-none"
                       />
                     </div>
+                    {flightDbDropdownOpen && flightDbMatches.length > 0 && (
+                      <div className="absolute left-0 right-0 z-10 mt-1 overflow-hidden rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                        {flightDbMatches.map((record) => (
+                          <button
+                            key={record.flightNumber}
+                            type="button"
+                            onMouseDown={() => {
+                              const m = record.flightNumber.match(/^([A-Z]+)(\d+)$/);
+                              const iata = m?.[1] ?? "";
+                              const num = m?.[2] ?? record.flightNumber;
+                              setFlightIataPrefix(iata);
+                              setFlightNumberSuffix(num);
+                              setAirlineSearch(record.airline);
+                              setDraftFlight((p) => ({
+                                ...p,
+                                flightNumber: record.flightNumber,
+                                airline: record.airline,
+                                from: record.from,
+                                to: record.to,
+                                departureTime: record.departureTime,
+                                arrivalTime: record.arrivalTime,
+                              }));
+                              setFlightDbDropdownOpen(false);
+                            }}
+                            className="flex w-full flex-col px-3 py-2 text-left transition-colors hover:bg-[--color-surface]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[--color-text]">{record.flightNumber}</span>
+                              <span className="text-xs text-[--color-text-muted]">{record.airline}</span>
+                            </div>
+                            <p className="text-xs text-[--color-text-muted]">
+                              {record.from} → {record.to} · {record.departureTime} → {record.arrivalTime}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 border-t border-[--color-border] pt-2">
