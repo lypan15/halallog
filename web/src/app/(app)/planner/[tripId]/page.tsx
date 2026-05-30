@@ -161,6 +161,15 @@ function addMinutesToTime(time: string, minutes: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+function addDaysToDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return yyyy + "-" + mm + "-" + dd;
+}
+
 function getValidationMessage(category: string): string {
   const msgs: Record<string, string> = {
     "Place": "Please enter a place name",
@@ -527,8 +536,8 @@ const emptyFlight = (): Omit<FlightItem, "id"> => ({
   arrivalDate: "", arrivalTime: "", airline: "", flightNumber: "",
 });
 const emptyStay = (): Omit<StayItem, "id"> => ({
-  propertyName: "", checkInDate: "", checkInTime: "",
-  checkOutDate: "", checkOutTime: "", address: "",
+  propertyName: "", checkInDate: "", checkInTime: "15:00",
+  checkOutDate: "", checkOutTime: "11:00", address: "",
 });
 const emptyTransport = (): Omit<TransportItem, "id"> => ({
   type: "Train", from: "", to: "", date: "", time: "",
@@ -571,6 +580,8 @@ export default function TripDetailPage() {
   const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
   const [editingStayId, setEditingStayId] = useState<string | null>(null);
+  const [nightsPopupOpen, setNightsPopupOpen] = useState(false);
+  const [nightsInput, setNightsInput] = useState("1");
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
   const [returnToSummaryAfterEdit, setReturnToSummaryAfterEdit] = useState(false);
@@ -1474,7 +1485,23 @@ export default function TripDetailPage() {
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Property name</label>
                     <input value={draftStay.propertyName} onChange={(e) => setDraftStay((p) => ({ ...p, propertyName: e.target.value }))} placeholder="Hotel Name" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
                   </div>
-                  {[["Check-in date", "checkInDate", "date"], ["Check-in time", "checkInTime", "time"], ["Check-out date", "checkOutDate", "date"], ["Check-out time", "checkOutTime", "time"]].map(([lbl, key, type]) => (
+                  <div>
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Check-in date</label>
+                    <input
+                      type="date"
+                      value={draftStay.checkInDate}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDraftStay((p) => ({ ...p, checkInDate: v }));
+                        if (v && !draftStay.checkOutDate) {
+                          setNightsInput("1");
+                          setNightsPopupOpen(true);
+                        }
+                      }}
+                      className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  {[["Check-in time", "checkInTime", "time"], ["Check-out date", "checkOutDate", "date"], ["Check-out time", "checkOutTime", "time"]].map(([lbl, key, type]) => (
                     <div key={key}>
                       <label className="mb-1 block text-xs text-[--color-text-muted]">{lbl}</label>
                       <input type={type} value={(draftStay as never)[key]} onChange={(e) => setDraftStay((p) => ({ ...p, [key]: e.target.value }))} className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
@@ -1948,6 +1975,42 @@ export default function TripDetailPage() {
       )}
 
       {/* ── Delete Confirmation Modal ── */}
+      {nightsPopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setNightsPopupOpen(false)}>
+          <div className="w-72 rounded-xl bg-[--color-surface] p-6 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="mb-4 text-sm font-semibold text-[--color-text]">How many nights?</p>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={nightsInput}
+              onChange={(e) => setNightsInput(e.target.value)}
+              className="mb-2 w-full rounded border border-[--color-border] px-3 py-2 text-center text-lg font-bold text-[--color-text] outline-none focus:border-[#2d6a4f]"
+            />
+            <p className="mb-5 text-xs text-[--color-text-muted]">Check-out date will be auto-filled</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setNightsPopupOpen(false)}
+                className="flex-1 rounded-lg border border-[--color-border] py-2 text-sm text-[--color-text-muted] hover:border-[#2d6a4f]"
+              >Cancel</button>
+              <button
+                type="button"
+                onClick={() => {
+                  const n = parseInt(nightsInput, 10);
+                  if (n >= 1 && n <= 365 && draftStay.checkInDate) {
+                    const newCheckOut = addDaysToDate(draftStay.checkInDate, n);
+                    setDraftStay((p) => ({ ...p, checkOutDate: newCheckOut }));
+                  }
+                  setNightsPopupOpen(false);
+                }}
+                className="flex-1 rounded-lg bg-[#2d6a4f] py-2 text-sm font-medium text-white"
+              >Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {summaryConfirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSummaryConfirmDelete(null)}>
           <div className="w-72 rounded-xl bg-[--color-surface] p-6 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
