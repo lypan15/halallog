@@ -625,6 +625,8 @@ export default function TripDetailPage() {
   const [editingStayId, setEditingStayId] = useState<string | null>(null);
   const [hotelSearch, setHotelSearch] = useState("");
   const [hotelDropdownOpen, setHotelDropdownOpen] = useState(false);
+  const [stayPriceInput, setStayPriceInput] = useState("");
+  const [stayPriceCurrency, setStayPriceCurrency] = useState("USD");
   const [nightsPopupOpen, setNightsPopupOpen] = useState(false);
   const [nightsInput, setNightsInput] = useState("1");
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
@@ -749,6 +751,8 @@ export default function TripDetailPage() {
       setEditingStayId(null);
       setHotelSearch("");
       setHotelDropdownOpen(false);
+      setStayPriceInput("");
+      setStayPriceCurrency("USD");
     }
   }, [showStayForm]);
 
@@ -1028,14 +1032,57 @@ export default function TripDetailPage() {
     }
   };
   const saveStay = () => {
+    const numPrice = parseFloat(stayPriceInput);
+    const hasPrice = isFinite(numPrice) && numPrice > 0;
+
     if (editingStayId) {
       setEssentialInfo((prev) => ({
         ...prev,
         stays: prev.stays.map((s) => s.id === editingStayId ? { id: s.id, ...draftStay } : s),
       }));
+      const budgetEntryId = `s-${editingStayId}`;
+      if (hasPrice) {
+        setBudgetItems((prev) => {
+          const exists = prev.some((b) => b.id === budgetEntryId);
+          if (exists) {
+            return prev.map((b) =>
+              b.id === budgetEntryId
+                ? { ...b, amount: numPrice, currencyCode: stayPriceCurrency, date: draftStay.checkInDate || "" }
+                : b
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: budgetEntryId,
+              category: "🏨 Accommodation",
+              subcategory: "Hotel",
+              amount: numPrice,
+              date: draftStay.checkInDate || "",
+              currencyCode: stayPriceCurrency,
+            },
+          ];
+        });
+      } else {
+        setBudgetItems((prev) => prev.filter((b) => b.id !== budgetEntryId));
+      }
       setEditingStayId(null);
     } else {
-      setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: `${Date.now()}`, ...draftStay }] }));
+      const stayId = `${Date.now()}`;
+      setEssentialInfo((prev) => ({ ...prev, stays: [...prev.stays, { id: stayId, ...draftStay }] }));
+      if (hasPrice) {
+        setBudgetItems((prev) => [
+          ...prev,
+          {
+            id: `s-${stayId}`,
+            category: "🏨 Accommodation",
+            subcategory: "Hotel",
+            amount: numPrice,
+            date: draftStay.checkInDate || "",
+            currencyCode: stayPriceCurrency,
+          },
+        ]);
+      }
     }
     setDraftStay(emptyStay());
     setShowStayForm(false);
@@ -1065,7 +1112,10 @@ export default function TripDetailPage() {
     setEssentialInfo((prev) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
     setBudgetItems((prev) => prev.filter((b) => b.id !== `f-${id}`));
   };
-  const deleteStay = (id: string) => setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
+  const deleteStay = (id: string) => {
+    setEssentialInfo((prev) => ({ ...prev, stays: prev.stays.filter((s) => s.id !== id) }));
+    setBudgetItems((prev) => prev.filter((b) => b.id !== `s-${id}`));
+  };
   const deleteTransport = (id: string) => setEssentialInfo((prev) => ({ ...prev, transports: prev.transports.filter((t) => t.id !== id) }));
 
   const toggleChecklist = (section: "essential" | "packing" | "quick", id: string) => {
@@ -1601,6 +1651,27 @@ export default function TripDetailPage() {
                   <div className="col-span-2">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Address</label>
                     <input value={draftStay.address} onChange={(e) => setDraftStay((p) => ({ ...p, address: e.target.value }))} placeholder="Address" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                  </div>
+                  {/* Price — auto-creates Budget entry on save */}
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs text-[--color-text-muted]">Price (optional)</label>
+                    <div className="flex overflow-hidden rounded border border-[--color-border]">
+                      <select
+                        value={stayPriceCurrency}
+                        onChange={(e) => setStayPriceCurrency(e.target.value)}
+                        className="shrink-0 border-r border-[--color-border] bg-[--color-surface] px-2 py-1.5 text-sm text-[--color-text-muted] outline-none"
+                      >
+                        {FLIGHT_PRICE_CURRENCIES.map((c) => (
+                          <option key={c.code} value={c.code}>{c.code}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={stayPriceInput}
+                        onChange={(e) => setStayPriceInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="0"
+                        className="w-full bg-transparent px-2 py-1.5 text-sm outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 border-t border-[--color-border] pt-2">
