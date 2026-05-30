@@ -399,6 +399,36 @@ const AIRPORTS: { iata: string; city: string }[] = [
   { iata: "DAC", city: "Dhaka" },
 ];
 
+const HOTELS: { name: string; address: string; city: string }[] = [
+  // Tokyo
+  { name: "Park Hyatt Tokyo", address: "3-7-1-2 Nishi-Shinjuku, Tokyo", city: "Tokyo" },
+  { name: "The Peninsula Tokyo", address: "1-8-1 Yurakucho, Chiyoda, Tokyo", city: "Tokyo" },
+  { name: "Mandarin Oriental Tokyo", address: "2-1-1 Nihonbashi Muromachi, Chuo, Tokyo", city: "Tokyo" },
+  { name: "Aman Tokyo", address: "The Otemachi Tower, 1-5-6 Otemachi, Chiyoda, Tokyo", city: "Tokyo" },
+  { name: "Shinjuku Granbell Hotel", address: "2-14-5 Kabukicho, Shinjuku, Tokyo", city: "Tokyo" },
+  { name: "Dormy Inn Tokyo Hatchobori", address: "2-3-7 Hatchobori, Chuo, Tokyo", city: "Tokyo" },
+  { name: "APA Hotel Shinjuku", address: "2-20-1 Kabukicho, Shinjuku, Tokyo", city: "Tokyo" },
+  { name: "Hilton Tokyo", address: "6-6-2 Nishi-Shinjuku, Shinjuku, Tokyo", city: "Tokyo" },
+  // Dubai
+  { name: "Burj Al Arab", address: "Jumeirah Beach Rd, Umm Suqeim, Dubai", city: "Dubai" },
+  { name: "Atlantis The Palm", address: "Crescent Rd, The Palm, Dubai", city: "Dubai" },
+  { name: "JW Marriott Marquis Dubai", address: "Sheikh Zayed Rd, Business Bay, Dubai", city: "Dubai" },
+  { name: "Rove Downtown Dubai", address: "Al Asayel St, Downtown Dubai", city: "Dubai" },
+  // Seoul
+  { name: "Lotte Hotel Seoul", address: "30 Eulji-ro, Jung-gu, Seoul", city: "Seoul" },
+  { name: "The Shilla Seoul", address: "249 Dongho-ro, Jung-gu, Seoul", city: "Seoul" },
+  { name: "Signiel Seoul", address: "123 Olympic-ro 300, Songpa-gu, Seoul", city: "Seoul" },
+  { name: "Ibis Budget Ambassador Seoul Myeongdong", address: "Myeongdong, Jung-gu, Seoul", city: "Seoul" },
+  // Singapore
+  { name: "Marina Bay Sands", address: "10 Bayfront Ave, Singapore 018956", city: "Singapore" },
+  { name: "Raffles Hotel Singapore", address: "1 Beach Rd, Singapore 189673", city: "Singapore" },
+  { name: "Hotel Boss Singapore", address: "500 Jln Sultan, Singapore 199020", city: "Singapore" },
+  // Istanbul
+  { name: "Four Seasons Istanbul at Sultanahmet", address: "Tevkifhane Sk. No:1, Fatih, Istanbul", city: "Istanbul" },
+  { name: "Ciragan Palace Kempinski", address: "Ciragan Cd. No:32, Besiktas, Istanbul", city: "Istanbul" },
+  { name: "Novotel Istanbul Bosphorus", address: "Ciragan Cd. No:4, Besiktas, Istanbul", city: "Istanbul" },
+];
+
 function airportLabel(iata: string): string {
   const a = AIRPORTS.find((x) => x.iata === iata);
   return a ? `${a.city} (${a.iata})` : iata;
@@ -580,6 +610,8 @@ export default function TripDetailPage() {
   const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [editingFlightId, setEditingFlightId] = useState<string | null>(null);
   const [editingStayId, setEditingStayId] = useState<string | null>(null);
+  const [hotelSearch, setHotelSearch] = useState("");
+  const [hotelDropdownOpen, setHotelDropdownOpen] = useState(false);
   const [nightsPopupOpen, setNightsPopupOpen] = useState(false);
   const [nightsInput, setNightsInput] = useState("1");
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
@@ -699,6 +731,8 @@ export default function TripDetailPage() {
   useEffect(() => {
     if (!showStayForm) {
       setEditingStayId(null);
+      setHotelSearch("");
+      setHotelDropdownOpen(false);
     }
   }, [showStayForm]);
 
@@ -736,6 +770,7 @@ export default function TripDetailPage() {
       if (!stay) return;
       const { id, ...fields } = stay;
       setDraftStay(fields);
+      setHotelSearch(stay.propertyName);
       setEditingStayId(id);
       setShowStayForm(true);
       setShowFlightForm(false);
@@ -1045,6 +1080,13 @@ export default function TripDetailPage() {
           a.name.toLowerCase().includes(airlineSearch.toLowerCase()) ||
           a.iata.toLowerCase().includes(airlineSearch.toLowerCase())
       ).slice(0, 8)
+    : [];
+
+  const filteredHotels = hotelSearch.trim()
+    ? HOTELS.filter((h) =>
+        h.name.toLowerCase().includes(hotelSearch.toLowerCase()) ||
+        h.city.toLowerCase().includes(hotelSearch.toLowerCase())
+      ).slice(0, 6)
     : [];
 
   const filteredFromAirports = fromSearch.trim()
@@ -1483,7 +1525,36 @@ export default function TripDetailPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Property name</label>
-                    <input value={draftStay.propertyName} onChange={(e) => setDraftStay((p) => ({ ...p, propertyName: e.target.value }))} placeholder="Hotel Name" className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm" />
+                    <div className="relative">
+                      <input
+                        value={hotelSearch}
+                        onChange={(e) => { setHotelSearch(e.target.value); setHotelDropdownOpen(true); setDraftStay((p) => ({ ...p, propertyName: e.target.value })); }}
+                        onFocus={() => setHotelDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setHotelDropdownOpen(false), 150)}
+                        placeholder="Search hotel..."
+                        autoComplete="off"
+                        className="w-full rounded border border-[--color-border] px-2 py-1.5 text-sm"
+                      />
+                      {hotelDropdownOpen && filteredHotels.length > 0 && (
+                        <div className="absolute left-0 right-0 z-10 mt-1 max-h-44 overflow-y-auto rounded-lg border border-[--color-border] bg-[--color-background] shadow-lg">
+                          {filteredHotels.map((hotel) => (
+                            <button
+                              key={hotel.name}
+                              type="button"
+                              onMouseDown={() => {
+                                setHotelSearch(hotel.name);
+                                setDraftStay((p) => ({ ...p, propertyName: hotel.name, address: hotel.address }));
+                                setHotelDropdownOpen(false);
+                              }}
+                              className="flex w-full items-center justify-between px-3 py-2 text-sm transition-colors hover:bg-[--color-surface]"
+                            >
+                              <span className="text-[--color-text]">{hotel.name}</span>
+                              <span className="text-xs text-[--color-text-muted]">{hotel.city}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-[--color-text-muted]">Check-in date</label>
@@ -1556,6 +1627,7 @@ export default function TripDetailPage() {
                             address: s.address,
                             attachmentName: s.attachmentName,
                           });
+                          setHotelSearch(s.propertyName);
                           setEditingStayId(s.id);
                           setShowStayForm(true);
                           setShowFlightForm(false);
