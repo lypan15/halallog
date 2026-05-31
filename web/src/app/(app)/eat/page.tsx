@@ -1,25 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
-
-type Diet = "halal" | "vegetarian" | "pescatarian" | "vegan";
-
-type Restaurant = {
-  id: string; name: string; cuisine: string; rating: number;
-  lat: number; lng: number;
-  halal: boolean; vegetarian: boolean; pescatarian: boolean; vegan: boolean;
-};
-
-// Mock data — this is the adapter seam; swap to Google Places later.
-const MOCK_RESTAURANTS: Restaurant[] = [
-  { id: "1", name: "Eid Halal Korean Food", cuisine: "Korean", rating: 4.6, lat: 37.5340, lng: 126.9948, halal: true, vegetarian: false, pescatarian: true, vegan: false },
-  { id: "2", name: "Murree Restaurant", cuisine: "Pakistani", rating: 4.4, lat: 37.5326, lng: 126.9905, halal: true, vegetarian: true, pescatarian: true, vegan: false },
-  { id: "3", name: "Plant Cafe Seoul", cuisine: "Vegan", rating: 4.5, lat: 37.5392, lng: 126.9870, halal: false, vegetarian: true, pescatarian: true, vegan: true },
-  { id: "4", name: "Seoul Seafood House", cuisine: "Seafood", rating: 4.2, lat: 37.5300, lng: 127.0000, halal: false, vegetarian: false, pescatarian: true, vegan: false },
-  { id: "5", name: "Halal Guys Itaewon", cuisine: "Middle Eastern", rating: 4.3, lat: 37.5345, lng: 126.9945, halal: true, vegetarian: false, pescatarian: false, vegan: false },
-  { id: "6", name: "Sanchon Temple Veggie", cuisine: "Temple", rating: 4.7, lat: 37.5760, lng: 126.9840, halal: false, vegetarian: true, pescatarian: false, vegan: true },
-];
+import { searchNearbyRestaurants, type Place, type Diet } from "@/lib/places";
 
 const FILTERS: { key: Diet; label: string }[] = [
   { key: "halal", label: "Halal" },
@@ -30,18 +13,21 @@ const FILTERS: { key: Diet; label: string }[] = [
 
 const CENTER = { lat: 37.5345, lng: 126.9945 };
 
-// All selected filters must match (AND). No filter = show all.
-function getRestaurants(active: Diet[]): Restaurant[] {
-  if (active.length === 0) return MOCK_RESTAURANTS;
-  return MOCK_RESTAURANTS.filter((r) => active.every((f) => r[f]));
-}
-
 export default function EatPage() {
+  const [all, setAll] = useState<Place[]>([]);
   const [active, setActive] = useState<Diet[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
+  useEffect(() => {
+    searchNearbyRestaurants().then(setAll);
+  }, []);
+
   const toggle = (f: Diet) =>
     setActive((p) => (p.includes(f) ? p.filter((x) => x !== f) : [...p, f]));
-  const restaurants = getRestaurants(active);
+
+  // Client-side diet filter (AND). No filter = show all.
+  const restaurants = active.length === 0 ? all : all.filter((r) => active.every((f) => r[f]));
 
   return (
     <div className="flex flex-col">
