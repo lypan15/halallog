@@ -29,6 +29,24 @@ export type Place = {
   googlePlaceId?: string;
 };
 
+// Great-circle distance in meters between two lat/lng points (client-side, no API).
+export function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000; // earth radius (m)
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat));
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+// Metres under 1 km (rounded to 10 m), else km to one decimal — e.g. "650 m", "1.2 km".
+export function formatDistance(m: number): string {
+  if (m < 1000) return `${Math.round(m / 10) * 10} m`;
+  return `${(m / 1000).toFixed(1)} km`;
+}
+
 const MOCK_RESTAURANTS: Place[] = [
   { id: "1", name: "Eid Halal Korean Food", category: "restaurant", cuisine: "Korean", rating: 4.6, lat: 37.5340, lng: 126.9948, address: "37 Usadan-ro 10-gil, Yongsan-gu, Seoul", halalTier: "certified", porkFree: true, alcoholFree: true, hasPrayerRoom: true, vegetarian: false, pescatarian: true, vegan: false },
   { id: "2", name: "Murree Restaurant", category: "restaurant", cuisine: "Pakistani", rating: 4.4, lat: 37.5326, lng: 126.9905, address: "126-7 Itaewon-ro, Yongsan-gu, Seoul", halalTier: "self", porkFree: true, alcoholFree: true, vegetarian: true, pescatarian: true, vegan: false },
@@ -57,4 +75,18 @@ const MOCK_DETAILS: Record<string, PlaceDetails> = {
 // replace with a real Google Place Details call later.
 export async function getPlaceDetails(id: string): Promise<PlaceDetails> {
   return MOCK_DETAILS[id] ?? { openNow: false, hours: ["Mon–Sun 11:00–21:00"], phone: "+82 2-000-0000" };
+}
+
+const MOCK_MOSQUES: Place[] = [
+  { id: "mq1", name: "Seoul Central Mosque", category: "mosque", lat: 37.5344, lng: 126.9936, address: "39 Usadan-ro 10-gil, Yongsan-gu, Seoul" },
+  { id: "mq2", name: "Itaewon Musalla", category: "prayerRoom", lat: 37.5341, lng: 126.9947, address: "27-gil Itaewon-ro, Yongsan-gu, Seoul" },
+  { id: "mq3", name: "Gangnam Prayer Room", category: "prayerRoom", lat: 37.4979, lng: 127.0276, address: "152 Teheran-ro, Gangnam-gu, Seoul" },
+  { id: "mq4", name: "Dongdaemun Masjid", category: "mosque", lat: 37.5709, lng: 127.0094, address: "266 Jangchungdan-ro, Jung-gu, Seoul" },
+  { id: "mq5", name: "Hongdae Musalla", category: "prayerRoom", lat: 37.5563, lng: 126.9237, address: "20 Eoulmadang-ro, Mapo-gu, Seoul" },
+];
+
+// Returns nearby mosques and prayer rooms; category filtering is done client-side by the caller.
+// Async on purpose — real sources (Google Places / KTO) are network calls.
+export async function searchNearbyMosques(): Promise<Place[]> {
+  return MOCK_MOSQUES;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
-import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
+import { searchNearbyRestaurants, getPlaceDetails, haversine, formatDistance, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
 const TIERS: { key: HalalTier; label: string }[] = [
   { key: "certified", label: "Halal Certified" },
@@ -52,6 +52,19 @@ function tierBadgeClass(tier: HalalTier): string {
   return `${base} bg-amber-100 text-amber-700`;
 }
 
+// Build a neighbourhood-level label from geocoder components: 동/sublocality + 구 + city.
+// Drops street number/name and country. Falls back gracefully when components are missing.
+function shortAddress(result: google.maps.GeocoderResult): string {
+  const comps = result.address_components;
+  const pick = (types: string[]) =>
+    comps.find((c) => types.some((t) => c.types.includes(t)))?.long_name;
+  const neighbourhood = pick(["sublocality_level_2", "neighborhood"]);
+  const district = pick(["sublocality_level_1", "administrative_area_level_2"]);
+  const city = pick(["locality", "administrative_area_level_1"]);
+  const parts = [neighbourhood, district, city].filter((p): p is string => !!p);
+  return parts.filter((p, i) => parts.indexOf(p) === i).join(", ");
+}
+
 // Shared chip style — matches the original filter buttons.
 function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
   return (
@@ -62,8 +75,8 @@ function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () 
   );
 }
 
-// Floating "My location" control. Uses browser geolocation (free) and panTo() so a
-// recenter doesn't fight the user's manual panning. Lives inside APIProvider for useMap().
+// "My location" control. Uses browser geolocation (free) and panTo() so a recenter
+// doesn't fight the user's manual panning. Renders inline inside the controls stack.
 function MyLocationButton({ mapId, onLocate }: { mapId: string; onLocate: (pos: { lat: number; lng: number }) => void }) {
   const map = useMap(mapId);
   const [error, setError] = useState(false);
@@ -86,15 +99,15 @@ function MyLocationButton({ mapId, onLocate }: { mapId: string; onLocate: (pos: 
 
   return (
     <>
+      <button onClick={locate} aria-label="My location"
+        className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
+        📍 My location
+      </button>
       {error && (
-        <p className="absolute bottom-16 left-4 z-10 rounded bg-white px-2 py-1 text-xs text-red-600 shadow">
+        <p className="rounded bg-white px-2 py-1 text-xs text-red-600 shadow">
           Couldn&apos;t get your location
         </p>
       )}
-      <button onClick={locate} aria-label="My location"
-        className="absolute bottom-4 left-4 z-10 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
-        📍 My location
-      </button>
     </>
   );
 }
@@ -116,6 +129,8 @@ export default function EatPage() {
   const [address, setAddress] = useState<string | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const map = useMap("eat-map");
+  const [radiusModalOpen, setRadiusModalOpen] = useState(false);
+  const [filtersModalOpen, setFiltersModalOpen] = useState(false);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
   useEffect(() => {
@@ -149,7 +164,8 @@ export default function EatPage() {
       .geocode({ location: searchCenter })
       .then(({ results }) => {
         if (cancelled) return;
-        setAddress(results[0]?.formatted_address ?? null);
+        const r = results[0];
+        setAddress(r ? shortAddress(r) || r.formatted_address : null);
         setAddressLoading(false);
       })
       .catch(() => {
@@ -183,6 +199,16 @@ export default function EatPage() {
     setSearchCenter(pos);
   };
 
+  const clearFilters = () => {
+    setTier(null);
+    setConstraints([]);
+    setDiets([]);
+    setPrayerOnly(false);
+  };
+
+  const activeFilterCount = (tier ? 1 : 0) + constraints.length + diets.length + (prayerOnly ? 1 : 0);
+  const radiusLabel = RADII.find((r) => r.value === radius)?.label ?? "";
+
   // Passes only if it matches the selected tier AND every selected constraint AND
   // every selected diet AND has a prayer space when that toggle is on. No selection = no filtering.
   const restaurants = all.filter((r) =>
@@ -211,30 +237,24 @@ export default function EatPage() {
             </AdvancedMarker>
           )}
         </Map>
-        <MyLocationButton mapId="eat-map" onLocate={handleLocate} />
+        {/* Controls stacked vertically at the left edge, sitting above the bottom-left Google logo. */}
+        <div className="absolute bottom-8 left-4 z-10 flex flex-col items-start gap-2">
+          <button onClick={() => setFiltersModalOpen(true)}
+            className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
+            Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
+          </button>
+          <button onClick={() => setRadiusModalOpen(true)} aria-label="Search radius"
+            className="rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
+            {radiusLabel}
+          </button>
+          <MyLocationButton mapId="eat-map" onLocate={handleLocate} />
+        </div>
       </div>
 
       <div className="px-4 pt-3 pb-2">
         <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
-          {addressLoading ? "Locating…" : address ? `Near: ${address}` : "Location unavailable"}
+          {addressLoading ? "Locating…" : address ? `Current location: ${address}` : "Location unavailable"}
         </div>
-      </div>
-
-      {/* Single scrollable row holding every filter chip — tier (single), constraints/diet (multi), amenity, radius (single). */}
-      <div className="flex gap-2 overflow-x-auto px-4 pb-3">
-        {TIERS.map(({ key, label }) => (
-          <Chip key={key} label={label} on={tier === key} onClick={() => selectTier(key)} />
-        ))}
-        {CONSTRAINTS.map(({ key, label }) => (
-          <Chip key={key} label={label} on={constraints.includes(key)} onClick={() => toggleConstraint(key)} />
-        ))}
-        {DIETS.map(({ key, label }) => (
-          <Chip key={key} label={label} on={diets.includes(key)} onClick={() => toggleDiet(key)} />
-        ))}
-        <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
-        {RADII.map(({ value, label }) => (
-          <Chip key={value} label={label} on={radius === value} onClick={() => setRadius(value)} />
-        ))}
       </div>
 
       <div className="px-4 py-3">
@@ -246,9 +266,12 @@ export default function EatPage() {
             {restaurants.map((r) => (
               <li key={r.id} onClick={() => setSelectedId(r.id)}
                 className={`cursor-pointer rounded-lg border p-3 ${selectedId === r.id ? "border-emerald-700 bg-emerald-50" : "border-gray-200 bg-white"}`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <span className="font-medium text-gray-900">{r.name}</span>
-                  <span className="text-sm text-gray-500">★ {r.rating}</span>
+                  <span className="flex flex-col items-end text-sm text-gray-500">
+                    <span>★ {r.rating}</span>
+                    <span className="text-xs">{formatDistance(haversine(searchCenter, r))}</span>
+                  </span>
                 </div>
                 {r.address && <p className="mt-0.5 text-xs text-gray-500">{r.address}</p>}
                 <div className="mt-1 flex flex-wrap gap-1 text-xs">
@@ -325,6 +348,73 @@ export default function EatPage() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Radius modal — single-select preset; selecting sets radius and closes. */}
+      {radiusModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setRadiusModalOpen(false)}>
+          <div className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900">Search radius</h2>
+              <button onClick={() => setRadiusModalOpen(false)} aria-label="Close"
+                className="rounded-full p-1 text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {RADII.map(({ value, label }) => (
+                <Chip key={value} label={label} on={radius === value}
+                  onClick={() => { setRadius(value); setRadiusModalOpen(false); }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters modal — grouped, labelled; applies live; X / tap-outside closes. */}
+      {filtersModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setFiltersModalOpen(false)}>
+          <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+              <div className="flex items-center gap-3">
+                <button onClick={clearFilters} className="text-sm text-gray-500">Clear all</button>
+                <button onClick={() => setFiltersModalOpen(false)} aria-label="Close"
+                  className="rounded-full p-1 text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+            </div>
+            <div className="mt-4 min-h-0 space-y-4 overflow-y-auto">
+              <div>
+                <p className="mb-2 text-xs text-gray-500">Halal</p>
+                <div className="flex flex-wrap gap-2">
+                  {TIERS.map(({ key, label }) => (
+                    <Chip key={key} label={label} on={tier === key} onClick={() => selectTier(key)} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs text-gray-500">Constraints</p>
+                <div className="flex flex-wrap gap-2">
+                  {CONSTRAINTS.map(({ key, label }) => (
+                    <Chip key={key} label={label} on={constraints.includes(key)} onClick={() => toggleConstraint(key)} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs text-gray-500">Diet</p>
+                <div className="flex flex-wrap gap-2">
+                  {DIETS.map(({ key, label }) => (
+                    <Chip key={key} label={label} on={diets.includes(key)} onClick={() => toggleDiet(key)} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs text-gray-500">Amenity</p>
+                <div className="flex flex-wrap gap-2">
+                  <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
