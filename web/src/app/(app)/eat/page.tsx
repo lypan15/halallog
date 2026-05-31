@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useState } from "react";
+import { Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
 const TIERS: { key: HalalTier; label: string }[] = [
@@ -22,6 +22,25 @@ const DIETS: { key: Diet; label: string }[] = [
 ];
 
 const CENTER = { lat: 37.5345, lng: 126.9945 };
+
+const RADII: { value: number; label: string }[] = [
+  { value: 500, label: "500 m" },
+  { value: 1000, label: "1 km" },
+  { value: 2000, label: "2 km" },
+  { value: 5000, label: "5 km" },
+];
+
+// Great-circle distance in meters between two lat/lng points (client-side, no API).
+function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000; // earth radius (m)
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat));
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
 
 // Map pin color by halal tier: darkest green → certified, medium → self, amber → options, gray → none.
 function pinColor(tier?: HalalTier): string {
@@ -101,6 +120,15 @@ export default function EatPage() {
   const [details, setDetails] = useState<PlaceDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  // Single search center shared by the circle, distance filter, and address bar.
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number }>(CENTER);
+  const [radius, setRadius] = useState(1000);
+  const geocodingLib = useMapsLibrary("geocoding");
+  const [address, setAddress] = useState<string | null>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const map = useMap("eat-map");
+  const mapsLib = useMapsLibrary("maps");
+  const circleRef = useRef<google.maps.Circle | null>(null);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
   useEffect(() => {
@@ -123,6 +151,60 @@ export default function EatPage() {
     return () => { cancelled = true; };
   }, [selectedId]);
 
+  // Reverse-geocode the search center → address. Runs ONLY for the initial center
+  // and when searchCenter changes (the My-location tap), never on map pan — keeps cost low.
+  useEffect(() => {
+    if (!geocodingLib) return; // geocoder not ready yet → bar shows "Location unavailable"
+    setAddressLoading(true);
+    let cancelled = false;
+    const geocoder = new geocodingLib.Geocoder();
+    geocoder
+      .geocode({ location: searchCenter })
+      .then(({ results }) => {
+        if (cancelled) return;
+        setAddress(results[0]?.formatted_address ?? null);
+        setAddressLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAddress(null);
+        setAddressLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [geocodingLib, searchCenter]);
+
+  // Draw/update the radius circle imperatively (@vis.gl has no <Circle>). Fit the map
+  // to the circle whenever center/radius change so the whole circle stays visible.
+  useEffect(() => {
+    if (!map || !mapsLib) return;
+    if (!circleRef.current) {
+      circleRef.current = new mapsLib.Circle({
+        map,
+        center: searchCenter,
+        radius,
+        fillColor: "#2d6a4f",
+        fillOpacity: 0.08,
+        strokeColor: "#2d6a4f",
+        strokeOpacity: 0.4,
+        strokeWeight: 1,
+        clickable: false,
+      });
+    } else {
+      circleRef.current.setCenter(searchCenter);
+      circleRef.current.setRadius(radius);
+    }
+    const bounds = circleRef.current.getBounds();
+    if (bounds) map.fitBounds(bounds);
+  }, [map, mapsLib, searchCenter, radius]);
+
+  // Tear down the circle on unmount.
+  useEffect(() => {
+    return () => {
+      circleRef.current?.setMap(null);
+      circleRef.current = null;
+    };
+  }, []);
+
   // Halal tier is single-select: clicking the active one clears it.
   const selectTier = (t: HalalTier) => setTier((p) => (p === t ? null : t));
   const toggleConstraint = (c: Constraint) =>
@@ -130,9 +212,17 @@ export default function EatPage() {
   const toggleDiet = (d: Diet) =>
     setDiets((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
 
-  // Passes only if it matches the selected tier AND every selected constraint AND
-  // every selected diet AND has a prayer space when that toggle is on. No selection = no filtering.
+  // My-location tap: drop the user marker AND move the shared search center
+  // (circle, distance filter, and address bar all key off searchCenter).
+  const handleLocate = (pos: { lat: number; lng: number }) => {
+    setUserPos(pos);
+    setSearchCenter(pos);
+  };
+
+  // Passes only if it is within the radius AND matches the selected tier AND every selected
+  // constraint AND every selected diet AND has a prayer space when that toggle is on.
   const restaurants = all.filter((r) =>
+    haversine(searchCenter, r) <= radius &&
     (tier === null || r.halalTier === tier) &&
     constraints.every((c) => r[c]) &&
     diets.every((d) => r[d]) &&
@@ -174,6 +264,20 @@ export default function EatPage() {
             <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
           </div>
         </div>
+        <div>
+          <p className="mb-1 text-xs text-gray-500">Radius</p>
+          <div className="flex gap-2 overflow-x-auto">
+            {RADII.map(({ value, label }) => (
+              <Chip key={value} label={label} on={radius === value} onClick={() => setRadius(value)} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3">
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
+          {addressLoading ? "Locating…" : address ? `Near: ${address}` : "Location unavailable"}
+        </div>
       </div>
 
       <div className="relative h-[55vh] w-full">
@@ -191,7 +295,7 @@ export default function EatPage() {
             </AdvancedMarker>
           )}
         </Map>
-        <MyLocationButton mapId="eat-map" onLocate={setUserPos} />
+        <MyLocationButton mapId="eat-map" onLocate={handleLocate} />
       </div>
 
       <div className="px-4 py-3">
@@ -222,11 +326,11 @@ export default function EatPage() {
         )}
       </div>
 
-      {/* Detail panel — bottom sheet; backdrop and X both close (clear selectedId). */}
+      {/* Detail panel — centered modal; backdrop and X both close (clear selectedId). */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setSelectedId(null)}>
-          <div className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedId(null)}>
+          <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{selected.name}</h2>
                 {selected.address && <p className="mt-0.5 text-sm text-gray-500">{selected.address}</p>}
@@ -239,7 +343,7 @@ export default function EatPage() {
                 className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600">✕</button>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 min-h-0 overflow-y-auto">
               {detailsLoading || !details ? (
                 <p className="py-4 text-center text-sm text-gray-500">Loading details…</p>
               ) : (
