@@ -147,6 +147,11 @@ export function upsertTrip(trip: TripRecord) {
   saveTrips(all);
 }
 
+export function deleteTrip(id: string) {
+  const all = getTrips().filter((item) => item.id !== id);
+  saveTrips(all);
+}
+
 export function getTripById(id: string): TripRecord | null {
   return getTrips().find((item) => item.id === id) ?? null;
 }
