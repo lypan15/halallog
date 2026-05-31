@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
 import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
 const TIERS: { key: HalalTier; label: string }[] = [
@@ -54,6 +54,43 @@ function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () 
   );
 }
 
+// Floating "My location" control. Uses browser geolocation (free) and panTo() so a
+// recenter doesn't fight the user's manual panning. Lives inside APIProvider for useMap().
+function MyLocationButton({ mapId, onLocate }: { mapId: string; onLocate: (pos: { lat: number; lng: number }) => void }) {
+  const map = useMap(mapId);
+  const [error, setError] = useState(false);
+
+  const locate = () => {
+    setError(false);
+    if (!navigator.geolocation) {
+      setError(true);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const next = { lat: p.coords.latitude, lng: p.coords.longitude };
+        onLocate(next);
+        map?.panTo(next);
+      },
+      () => setError(true) // permission denied / unavailable: keep current center
+    );
+  };
+
+  return (
+    <>
+      {error && (
+        <p className="absolute bottom-16 right-4 z-10 rounded bg-white px-2 py-1 text-xs text-red-600 shadow">
+          Couldn&apos;t get your location
+        </p>
+      )}
+      <button onClick={locate} aria-label="My location"
+        className="absolute bottom-4 right-4 z-10 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
+        📍 My location
+      </button>
+    </>
+  );
+}
+
 export default function EatPage() {
   const [all, setAll] = useState<Place[]>([]);
   const [tier, setTier] = useState<HalalTier | null>(null);
@@ -63,6 +100,7 @@ export default function EatPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [details, setDetails] = useState<PlaceDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
   useEffect(() => {
@@ -138,9 +176,9 @@ export default function EatPage() {
         </div>
       </div>
 
-      <div className="h-[55vh] w-full">
+      <div className="relative h-[55vh] w-full">
         <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string}>
-          <Map defaultCenter={CENTER} defaultZoom={14} mapId="DEMO_MAP_ID"
+          <Map id="eat-map" defaultCenter={CENTER} defaultZoom={14} mapId="DEMO_MAP_ID"
             gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>
             {restaurants.map((r) => (
               <AdvancedMarker key={r.id} position={{ lat: r.lat, lng: r.lng }}
@@ -148,7 +186,13 @@ export default function EatPage() {
                 <Pin background={pinColor(r.halalTier)} glyphColor="#ffffff" borderColor="#ffffff" />
               </AdvancedMarker>
             ))}
+            {userPos && (
+              <AdvancedMarker position={userPos}>
+                <Pin background="#2563eb" glyphColor="#ffffff" borderColor="#ffffff" />
+              </AdvancedMarker>
+            )}
           </Map>
+          <MyLocationButton mapId="eat-map" onLocate={setUserPos} />
         </APIProvider>
       </div>
 
