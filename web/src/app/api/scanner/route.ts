@@ -1,18 +1,21 @@
 // server-side proxy for Claude Vision halal scan
 import Anthropic from "@anthropic-ai/sdk";
 
-const PROMPT = `You are a halal food inspector. Examine the image, which may show a food product label, an ingredients list, or a restaurant menu.
+const PROMPT = `You are an ingredient-screening assistant. Examine the image, which may show a food product label, an ingredients list, or a restaurant menu. You are NOT issuing a religious ruling or halal certification — you only describe what ingredients are detected and how concerning they are.
 
 Steps:
 1. Read any visible ingredients / menu / food label text in the image.
-2. Determine the halal status as exactly one of: "Halal", "Haram", "Doubtful".
-3. Err on the side of "Doubtful" when uncertain — never guess "Halal".
+2. Classify into exactly one of these internal values:
+   - "Halal": no obvious non-halal ingredients detected.
+   - "Doubtful": one or more ingredients may require confirmation of their source or production process (e.g. gelatin, emulsifiers, enzymes, mono-/diglycerides, "flavourings", alcohol-derived additives), or the text is partially unclear.
+   - "Haram": ingredients commonly understood to be non-halal are detected (e.g. pork/pork derivatives, lard, ethanol/alcoholic content).
+3. Err on the side of "Doubtful" when uncertain — never output "Halal" on guesswork.
 4. If the image is unreadable or not food-related, return status "Doubtful" with a reason saying so.
 
 Respond ONLY in strict JSON (no markdown, no code fences, no prose) with exactly this shape:
 { "status": "Halal" | "Haram" | "Doubtful", "confidence": "high" | "medium" | "low", "reason": string, "flaggedIngredients": string[] }
 
-"reason" must be one or two short sentences in plain English. "flaggedIngredients" lists any concerning ingredients (empty array if none).`;
+"reason" must be one or two short sentences in plain English that DESCRIBE WHAT WAS DETECTED in the ingredients (e.g. "Contains gelatin of unspecified source.") — do NOT phrase it as a religious verdict. "flaggedIngredients" lists any concerning ingredients (empty array if none).`;
 
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;

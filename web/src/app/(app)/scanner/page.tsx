@@ -11,11 +11,32 @@ type ScanResult = {
   flaggedIngredients: string[];
 };
 
-// Visual mapping shared by the status badge and the legend.
-const STATUS_STYLES: Record<Status, { color: string; emoji: string }> = {
-  Halal: { color: "bg-green-100 text-green-700", emoji: "✅" },
-  Doubtful: { color: "bg-yellow-100 text-yellow-700", emoji: "⚠️" },
-  Haram: { color: "bg-red-100 text-red-700", emoji: "❌" },
+// Non-definitive display mapping for each internal status (colors/emojis unchanged).
+const STATUS_DISPLAY: Record<
+  Status,
+  { color: string; emoji: string; title: string; legend: string; subtext: string }
+> = {
+  Halal: {
+    color: "bg-green-100 text-green-700",
+    emoji: "✅",
+    title: "No obvious non-halal ingredients detected",
+    legend: "No obvious non-halal ingredients",
+    subtext: "AI guidance only. Not halal certification.",
+  },
+  Doubtful: {
+    color: "bg-yellow-100 text-yellow-700",
+    emoji: "⚠️",
+    title: "Doubtful — verification recommended",
+    legend: "Doubtful — verify",
+    subtext: "Some ingredients may require source or production process confirmation.",
+  },
+  Haram: {
+    color: "bg-red-100 text-red-700",
+    emoji: "❌",
+    title: "Likely not halal",
+    legend: "Likely not halal",
+    subtext: "Potential non-halal ingredients detected. Please avoid or verify with a recognised authority.",
+  },
 };
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -26,6 +47,7 @@ export default function ScannerPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Read a File as a data URL (base64) string.
   function readAsDataURL(file: File): Promise<string> {
@@ -95,6 +117,9 @@ export default function ScannerPage() {
         <p className="mt-1 text-sm text-[--color-text-muted]">
           Scan food labels or menus to check halal status instantly
         </p>
+        <p className="mt-1 text-xs font-medium text-[--color-text-muted]">
+          AI guidance tool — not a halal certifier.
+        </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -142,12 +167,15 @@ export default function ScannerPage() {
             </div>
           ) : result ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 text-center">
                 <span
-                  className={`rounded-full px-4 py-1.5 text-base font-semibold ${STATUS_STYLES[result.status].color}`}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold ${STATUS_DISPLAY[result.status].color}`}
                 >
-                  {STATUS_STYLES[result.status].emoji} {result.status}
+                  {STATUS_DISPLAY[result.status].emoji} {STATUS_DISPLAY[result.status].title}
                 </span>
+                <p className="text-xs text-[--color-text-muted]">
+                  {STATUS_DISPLAY[result.status].subtext}
+                </p>
               </div>
               <p className="text-sm text-[--color-text]">{result.reason}</p>
               <p className="text-xs text-[--color-text-muted] capitalize">
@@ -163,6 +191,25 @@ export default function ScannerPage() {
                   </ul>
                 </div>
               )}
+
+              {/* Always-visible short disclaimer + expandable full disclaimer */}
+              <div className="rounded-lg bg-slate-50 p-3 text-xs text-[--color-text-muted]">
+                <p className="font-medium">AI guidance only — not halal certification.</p>
+                <button
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="mt-1 font-medium text-primary-600 hover:text-primary-700"
+                >
+                  {showDetails ? "Hide details" : "Details"}
+                </button>
+                {showDetails && (
+                  <p className="mt-2 leading-relaxed">
+                    This scan uses AI and may be inaccurate. It is guidance only and does not
+                    constitute religious or halal certification. Please verify with recognised
+                    halal authorities (e.g. JAKIM, MUI, IFANCA, HMC). Final consumption decisions
+                    remain with the user.
+                  </p>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
@@ -179,8 +226,8 @@ export default function ScannerPage() {
           <div className="mt-4 space-y-2 border-t border-[--color-border] pt-4">
             {(["Halal", "Doubtful", "Haram"] as Status[]).map((status) => (
               <div key={status} className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status].color}`}>
-                  {STATUS_STYLES[status].emoji} {status}
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_DISPLAY[status].color}`}>
+                  {STATUS_DISPLAY[status].emoji} {STATUS_DISPLAY[status].legend}
                 </span>
               </div>
             ))}
