@@ -272,8 +272,21 @@ export default function EatPage() {
             <div className="flex shrink-0 items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{selected.name}</h2>
-                {selected.address && <p className="mt-0.5 text-sm text-gray-500">{selected.address}</p>}
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                {selected.address && (
+                  <p className="mt-0.5 flex items-start gap-1.5 text-sm text-gray-500">
+                    <span aria-hidden>📍</span>
+                    <span>{selected.address}</span>
+                  </p>
+                )}
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700"
+                >
+                  🧭 Directions
+                </a>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                   <span className="text-sm text-gray-500">★ {selected.rating}</span>
                   {selected.halalTier && <span className={tierBadgeClass(selected.halalTier)}>{tierLabel(selected.halalTier)}</span>}
                 </div>
@@ -293,11 +306,23 @@ export default function EatPage() {
                     </span>
                   )}
                   {details.hours && details.hours.length > 0 && (
-                    <ul className="space-y-0.5 text-sm text-gray-600">
-                      {details.hours.map((h) => <li key={h}>{h}</li>)}
-                    </ul>
+                    <div className="flex items-start gap-1.5 text-sm text-gray-600">
+                      <span aria-hidden>🕐</span>
+                      <ul className="space-y-0.5">
+                        {details.hours.map((h) => <li key={h}>{h}</li>)}
+                      </ul>
+                    </div>
                   )}
-                  {details.phone && <p className="text-sm text-gray-600">{details.phone}</p>}
+                  {details.phone && (
+                    <p className="flex items-center gap-1.5 text-sm text-gray-600">
+                      <span aria-hidden>📞</span>
+                      <span>{details.phone}</span>
+                      <a href={`tel:${details.phone}`}
+                        className="ml-1 inline-flex items-center rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700">
+                        Call
+                      </a>
+                    </p>
+                  )}
                 </div>
               )}
             </div>
