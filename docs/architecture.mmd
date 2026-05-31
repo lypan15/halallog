@@ -1,0 +1,31 @@
+%% Trips data flow — SOURCE-OF-TRUTH diagram.
+%% Visualises how Day Plan / Most Used feed Cost and Summary, with the
+%% budget-item id-prefix linkage (d- / f- / s-) labelled on each arrow.
+%% Living doc: update this whenever cross-tab links change (see docs/trips-dataflow.md).
+
+graph LR
+    %% ── Input tabs (sources) ──
+    DP["Day Plan<br/>placesByDay (TripPlace)"]
+    MU["Most Used<br/>essentialInfo (flights + stays)"]
+
+    %% ── Auto-populated views ──
+    COST["Cost<br/>budgetItems (TripBudgetItem)"]
+    SUM["Summary<br/>timeline (read-only)"]
+
+    %% ── Independent tab ──
+    CHK["Checklist<br/>checklistSections"]
+
+    %% Day Plan → Cost (priced items only; Prayer Space never links)
+    DP -- "d-&lt;placeId&gt; (priced)" --> COST
+    %% Most Used → Cost
+    MU -- "f-&lt;flightId&gt; (flight price)" --> COST
+    MU -- "s-&lt;stayId&gt; (stay price)" --> COST
+
+    %% Both sources feed the Summary timeline (by date)
+    DP -- "non-note places" --> SUM
+    MU -- "flights + stays" --> SUM
+
+    %% Manual entry inside Cost (no prefix, no source)
+    COST -. "+ Add Cost<br/>(manual, id = Date.now)" .-> COST
+
+    %% Checklist is independent — no cross-tab links
