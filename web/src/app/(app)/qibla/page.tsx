@@ -145,10 +145,6 @@ export default function QiblaPage() {
         )}
       </div>
 
-      <p className="text-xs text-[--color-text-muted]">
-        Live compass needs HTTPS and a phone magnetometer; if it drifts, calibrate by moving the phone in a figure-8.
-      </p>
-
       <div className="rounded-xl border border-[--color-border] bg-[--color-surface] p-5">
         <h2 className="font-semibold text-[--color-text]">Usage Tips</h2>
         <ul className="mt-3 space-y-2 text-sm text-[--color-text-muted]">
