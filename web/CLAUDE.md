@@ -1,96 +1,80 @@
-# CLAUDE.md
+# CLAUDE.md — HalalLog Web (`web/`)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-**HalalLog Web** — Next.js 16 web app for the HalalLog Muslim travel planner. Part of the `halallog/web` sub-project inside the monorepo root.
-
-> ⚠️ This is **Next.js 16** with **React 19** and **Tailwind CSS v4**. APIs and conventions differ from earlier versions. Read `node_modules/next/dist/docs/` before making changes.
+Web stack-specific guidance. This ADDS to the root `../CLAUDE.md` (overview,
+principles, workflow, response rules) — read that too. This file is the single
+source of truth for WEB technical detail.
 
 ## Tech Stack
-
 | Layer | Choice |
 |-------|--------|
 | Framework | Next.js 16 (App Router) |
+| UI | React 19 (Server Components by default) |
+| Styling | Tailwind CSS v4 — via `@theme` in `globals.css`, NO `tailwind.config.js` |
+| State | Zustand |
+| Data (now) | Browser `localStorage` — no auth, no cross-device sync |
+| Data (planned) | Supabase (auth + DB) — set up, not wired |
+| Hosting | Vercel (halallog.vercel.app) |
 | Language | TypeScript 5 (strict) |
-| Styling | Tailwind CSS v4 — configured via `@theme` in `globals.css`, **no `tailwind.config.js`** |
-| Runtime | React 19 Server Components by default |
 
-## Key Next.js 16 Differences
+## Next.js 16 / React 19 gotchas
+- `params` is a Promise — `const { id } = await params` in page/layout props.
+- Tailwind v4: `@import "tailwindcss"` + `@theme {}` in CSS; no JS config file.
+- Server Components are the default; add `"use client"` only for hooks, event handlers, or browser APIs.
+- Pass server-fetched data to Client Components as props.
+- Dev runs on Turbopack.
 
-- **`params` is now a `Promise`** — always `await params` in page/layout props: `const { id } = await params`
-- **Tailwind v4** uses `@import "tailwindcss"` and `@theme {}` in CSS — no JS config file
-- **No `turbopack`** flag (use `next dev` directly, not `--turbopack`)
-- Server Components are the default; add `"use client"` only for interactivity, hooks, or browser APIs
-- Client-side env vars must be prefixed with `NEXT_PUBLIC_`
-
-## Development Commands
-
-```bash
-# Run from halallog/web/
-npm run dev     # Start dev server on http://localhost:3000
-npm run build   # Production build
-npm run start   # Start production server
-npm run lint    # ESLint
-npx tsc --noEmit  # Type-check
-```
+## Dev Commands (run inside `web/`)
+\```bash
+npm run dev        # dev server → http://localhost:3000
+npm run build      # production build (deploy gate — must pass)
+npm run start      # serve production build
+npm run lint       # ESLint
+npx tsc --noEmit   # type-check
+\```
 
 ## Route Structure
-
-```
+\```
 src/app/
-  layout.tsx              # Root layout: Inter font, metadata, globals.css
-  globals.css             # Tailwind v4 @theme — brand colors, semantic tokens
-  page.tsx                # Landing page (/)
+  page.tsx                       # landing (/) — OUTSIDE (app); easy to miss on renames
+  globals.css                    # Tailwind v4 @theme — brand colors/tokens
   (app)/
-    layout.tsx            # App shell with <AppNav> (sticky top nav bar)
-    planner/page.tsx      # /planner — Trip Planner
-    map/page.tsx          # /map     — Halal Map
-    prayer/page.tsx       # /prayer  — Prayer times + Qibla
-    scanner/page.tsx      # /scanner — Halal Scanner (Claude Vision)
+    layout.tsx                   # app shell + <AppNav>
+    planner/page.tsx             # /planner — trip list
+    planner/[tripId]/page.tsx    # trip detail (Summary/Most Used/Day Plan/Cost/Checklist) — large central file
+    eat/                         # /eat — Eat (renamed from old `map/`)
+    prayer/page.tsx              # /prayer — Pray
+    explore/                     # /explore — Explore
+    scanner/                     # /scanner — Scanner (Claude Vision) [in progress]
+  api/
+    scanner/route.ts             # POST → proxy Claude Vision (key server-side) [planned]
+    prayer/route.ts              # GET → proxy Aladhan prayer times [planned]
+src/lib/
+  trips-storage.ts               # trips state (localStorage)
+  prayer-store.ts                # prayer settings (localStorage)
 src/components/
-  layout/
-    app-nav.tsx           # Top nav with 4 tab links (Client Component — usePathname)
-```
+  layout/app-nav.tsx             # nav: 5 tabs (Trips/Eat/Pray/Explore) + center Scanner FAB — Client Component (usePathname)
+\```
 
-## Styling Conventions
+## Styling
+- Brand colors and semantic tokens are defined in `globals.css` under `@theme`. That file is the source of truth — read it; do NOT hardcode hex in components.
+- Reference tokens via Tailwind / `var()`, e.g. `className="bg-[--color-surface] text-[--color-text]"`.
+- Design direction: light mode default + dark toggle.
 
-Tailwind CSS v4 CSS variables are defined in `globals.css` under `@theme`. Reference them with `var()` in className strings:
-```tsx
-// ✅ correct
-<div className="bg-[--color-surface] text-[--color-text]">
-
-// ✅ also correct for theme-extended colors
-<div className="bg-primary-500 text-primary-600">
-```
-
-Brand palette:
-- **Primary green**: `primary-500` = `#22c55e` (halal brand color)
-- **Gold accent**: `gold-500` = `#f59e0b`
-- **Semantic**: `--color-background`, `--color-surface`, `--color-border`, `--color-text`, `--color-text-muted`
-
-## Server vs Client Components
-
-- Pages (`page.tsx`) and layouts are **Server Components** by default — keep them that way
-- Add `"use client"` only when you need `useState`, `useEffect`, event handlers, or browser APIs
-- `AppNav` is a Client Component because it uses `usePathname()`
-- Pass server-fetched data as **props** to Client Components
+## Server vs Client
+- Pages and layouts are Server Components by default — keep them so.
+- Add `"use client"` only when needed (state, effects, events, browser APIs).
+- localStorage-backed screens MUST guard hydration (server has no localStorage): use a `mounted` flag and render a placeholder until mounted, so the first client render matches the server.
 
 ## Environment Variables
+`web/.env.local` (gitignored). Only `NEXT_PUBLIC_*` reaches the browser. On Vercel, set the same vars in Project Settings. Never commit keys.
+\```
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY   # Maps/Places (client) — restrict by referrer
+ANTHROPIC_API_KEY                 # server-only — Claude Vision for /scanner
+NEXT_PUBLIC_SUPABASE_URL          # (later)
+NEXT_PUBLIC_SUPABASE_ANON_KEY     # (later)
+\```
 
-Copy `.env.example` → `.env.local`. Only `NEXT_PUBLIC_*` vars are exposed to the browser.
-
-```
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-ANTHROPIC_API_KEY        # server-only — Claude Vision for /scanner
-```
-
-## Planned API Routes
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `app/api/scanner/route.ts` | POST | Proxy Claude Vision API (keeps key server-side) |
-| `app/api/prayer/route.ts` | GET | Proxy Aladhan API (prayer times) |
+## Web Coding Conventions
+- Functional components; clear, intuitive names.
+- One-line purpose comment on NEW logic; don't touch unrelated existing comments/code/formatting.
+- Match existing code style (quotes, indentation).
