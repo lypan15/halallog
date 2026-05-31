@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
-import { searchNearbyRestaurants, type Place, type Diet, type HalalTier, type Constraint } from "@/lib/places";
+import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
 const TIERS: { key: HalalTier; label: string }[] = [
   { key: "certified", label: "Halal Certified" },
@@ -61,11 +61,29 @@ export default function EatPage() {
   const [diets, setDiets] = useState<Diet[]>([]);
   const [prayerOnly, setPrayerOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [details, setDetails] = useState<PlaceDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
   useEffect(() => {
     searchNearbyRestaurants().then(setAll);
   }, []);
+
+  // Fetch the "expensive" details only when the panel opens (on tap), not per list item.
+  useEffect(() => {
+    if (selectedId === null) {
+      setDetails(null);
+      return;
+    }
+    setDetailsLoading(true);
+    let cancelled = false;
+    getPlaceDetails(selectedId).then((d) => {
+      if (cancelled) return;
+      setDetails(d);
+      setDetailsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [selectedId]);
 
   // Halal tier is single-select: clicking the active one clears it.
   const selectTier = (t: HalalTier) => setTier((p) => (p === t ? null : t));
@@ -82,6 +100,8 @@ export default function EatPage() {
     diets.every((d) => r[d]) &&
     (!prayerOnly || r.hasPrayerRoom)
   );
+
+  const selected = selectedId === null ? null : all.find((r) => r.id === selectedId) ?? null;
 
   return (
     <div className="flex flex-col">
@@ -159,6 +179,46 @@ export default function EatPage() {
           </ul>
         )}
       </div>
+
+      {/* Detail panel — bottom sheet; backdrop and X both close (clear selectedId). */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setSelectedId(null)}>
+          <div className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{selected.name}</h2>
+                {selected.address && <p className="mt-0.5 text-sm text-gray-500">{selected.address}</p>}
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-sm text-gray-500">★ {selected.rating}</span>
+                  {selected.halalTier && <span className={tierBadgeClass(selected.halalTier)}>{tierLabel(selected.halalTier)}</span>}
+                </div>
+              </div>
+              <button onClick={() => setSelectedId(null)} aria-label="Close"
+                className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            <div className="mt-4">
+              {detailsLoading || !details ? (
+                <p className="py-4 text-center text-sm text-gray-500">Loading details…</p>
+              ) : (
+                <div className="space-y-3">
+                  {details.openNow !== undefined && (
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs ${details.openNow ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                      {details.openNow ? "Open now" : "Closed"}
+                    </span>
+                  )}
+                  {details.hours && details.hours.length > 0 && (
+                    <ul className="space-y-0.5 text-sm text-gray-600">
+                      {details.hours.map((h) => <li key={h}>{h}</li>)}
+                    </ul>
+                  )}
+                  {details.phone && <p className="text-sm text-gray-600">{details.phone}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
