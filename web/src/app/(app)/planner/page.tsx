@@ -18,12 +18,7 @@ export default function PlannerPage() {
 
   if (!mounted) {
     return (
-      <div className="space-y-4 pb-10">
-        <div className="flex items-center justify-between">
-          <Link href="/planner" className="text-sm text-[--color-text-muted]">← Back</Link>
-        </div>
-        <p className="py-10 text-center text-sm text-[--color-text-muted]">Loading trip…</p>
-      </div>
+      <p className="py-10 text-center text-sm text-[--color-text-muted]">Loading…</p>
     );
   }
 
