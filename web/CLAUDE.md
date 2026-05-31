@@ -55,6 +55,14 @@ src/components/
   layout/app-nav.tsx             # nav: 5 tabs (Trips/Eat/Pray/Explore) + center Scanner FAB — Client Component (usePathname)
 \```
 
+## Data Architecture
+Two layers, no overlap:
+1. **Google Places** — POI search, coordinates, and rendering for things Google knows (restaurants as places, mosques, hotels as places).
+2. **Self-curated DB** (`lib/places.ts` data layer) — Muslim-specific info Google does NOT provide: halal grade tags, prayer rooms (musalla inside buildings), hotel Muslim facilities (prayer room / halal breakfast).
+
+- Rule: do NOT duplicate what Google already returns. Only store Muslim-specific fields the source guides supply that Google lacks (e.g. mosques are searchable via Google → not stored; musalla/prayer rooms are not → stored).
+- Source guides: official tourism Muslim travel guide PDFs (e.g. Tokyo Muslim Travelers' Guide). For halal/critical fields, keep source attribution; LLM extraction is a draft, not auto-confirmed truth.
+
 ## Styling
 - Brand colors and semantic tokens are defined in `globals.css` under `@theme`. That file is the source of truth — read it; do NOT hardcode hex in components.
 - Reference tokens via Tailwind / `var()`, e.g. `className="bg-[--color-surface] text-[--color-text]"`.
