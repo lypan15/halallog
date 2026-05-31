@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
@@ -23,24 +23,13 @@ const DIETS: { key: Diet; label: string }[] = [
 
 const CENTER = { lat: 37.5345, lng: 126.9945 };
 
-const RADII: { value: number; label: string }[] = [
-  { value: 500, label: "500 m" },
-  { value: 1000, label: "1 km" },
-  { value: 2000, label: "2 km" },
-  { value: 5000, label: "5 km" },
+// Radius presets just pick a zoom level (smaller radius = closer). No circle, no distance filter.
+const RADII: { value: number; label: string; zoom: number }[] = [
+  { value: 500, label: "500 m", zoom: 16 },
+  { value: 1000, label: "1 km", zoom: 15 },
+  { value: 2000, label: "2 km", zoom: 14 },
+  { value: 5000, label: "5 km", zoom: 13 },
 ];
-
-// Great-circle distance in meters between two lat/lng points (client-side, no API).
-function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 6371000; // earth radius (m)
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.sin(dLng / 2) ** 2 * Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat));
-  return 2 * R * Math.asin(Math.sqrt(x));
-}
 
 // Map pin color by halal tier: darkest green → certified, medium → self, amber → options, gray → none.
 function pinColor(tier?: HalalTier): string {
@@ -98,12 +87,12 @@ function MyLocationButton({ mapId, onLocate }: { mapId: string; onLocate: (pos: 
   return (
     <>
       {error && (
-        <p className="absolute bottom-16 right-4 z-10 rounded bg-white px-2 py-1 text-xs text-red-600 shadow">
+        <p className="absolute bottom-16 left-4 z-10 rounded bg-white px-2 py-1 text-xs text-red-600 shadow">
           Couldn&apos;t get your location
         </p>
       )}
       <button onClick={locate} aria-label="My location"
-        className="absolute bottom-4 right-4 z-10 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
+        className="absolute bottom-4 left-4 z-10 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-md">
         📍 My location
       </button>
     </>
@@ -120,15 +109,13 @@ export default function EatPage() {
   const [details, setDetails] = useState<PlaceDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
-  // Single search center shared by the circle, distance filter, and address bar.
+  // Single search center shared by the map zoom/recenter and the address bar.
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number }>(CENTER);
   const [radius, setRadius] = useState(1000);
   const geocodingLib = useMapsLibrary("geocoding");
   const [address, setAddress] = useState<string | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const map = useMap("eat-map");
-  const mapsLib = useMapsLibrary("maps");
-  const circleRef = useRef<google.maps.Circle | null>(null);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
   useEffect(() => {
@@ -173,37 +160,14 @@ export default function EatPage() {
     return () => { cancelled = true; };
   }, [geocodingLib, searchCenter]);
 
-  // Draw/update the radius circle imperatively (@vis.gl has no <Circle>). Fit the map
-  // to the circle whenever center/radius change so the whole circle stays visible.
+  // Radius preset = zoom level. Recenter on the search center and apply the matching
+  // zoom whenever either changes (no circle, no fitBounds — that was the zoom-out cause).
   useEffect(() => {
-    if (!map || !mapsLib) return;
-    if (!circleRef.current) {
-      circleRef.current = new mapsLib.Circle({
-        map,
-        center: searchCenter,
-        radius,
-        fillColor: "#2d6a4f",
-        fillOpacity: 0.08,
-        strokeColor: "#2d6a4f",
-        strokeOpacity: 0.4,
-        strokeWeight: 1,
-        clickable: false,
-      });
-    } else {
-      circleRef.current.setCenter(searchCenter);
-      circleRef.current.setRadius(radius);
-    }
-    const bounds = circleRef.current.getBounds();
-    if (bounds) map.fitBounds(bounds);
-  }, [map, mapsLib, searchCenter, radius]);
-
-  // Tear down the circle on unmount.
-  useEffect(() => {
-    return () => {
-      circleRef.current?.setMap(null);
-      circleRef.current = null;
-    };
-  }, []);
+    if (!map) return;
+    const zoom = RADII.find((r) => r.value === radius)?.zoom ?? 15;
+    map.panTo(searchCenter);
+    map.setZoom(zoom);
+  }, [map, searchCenter, radius]);
 
   // Halal tier is single-select: clicking the active one clears it.
   const selectTier = (t: HalalTier) => setTier((p) => (p === t ? null : t));
@@ -219,10 +183,9 @@ export default function EatPage() {
     setSearchCenter(pos);
   };
 
-  // Passes only if it is within the radius AND matches the selected tier AND every selected
-  // constraint AND every selected diet AND has a prayer space when that toggle is on.
+  // Passes only if it matches the selected tier AND every selected constraint AND
+  // every selected diet AND has a prayer space when that toggle is on. No selection = no filtering.
   const restaurants = all.filter((r) =>
-    haversine(searchCenter, r) <= radius &&
     (tier === null || r.halalTier === tier) &&
     constraints.every((c) => r[c]) &&
     diets.every((d) => r[d]) &&
@@ -233,56 +196,9 @@ export default function EatPage() {
 
   return (
     <div className="flex flex-col">
-      <div className="space-y-3 px-4 py-3">
-        <div>
-          <p className="mb-1 text-xs text-gray-500">Halal</p>
-          <div className="flex gap-2 overflow-x-auto">
-            {TIERS.map(({ key, label }) => (
-              <Chip key={key} label={label} on={tier === key} onClick={() => selectTier(key)} />
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-gray-500">Constraints</p>
-          <div className="flex gap-2 overflow-x-auto">
-            {CONSTRAINTS.map(({ key, label }) => (
-              <Chip key={key} label={label} on={constraints.includes(key)} onClick={() => toggleConstraint(key)} />
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-gray-500">Diet</p>
-          <div className="flex gap-2 overflow-x-auto">
-            {DIETS.map(({ key, label }) => (
-              <Chip key={key} label={label} on={diets.includes(key)} onClick={() => toggleDiet(key)} />
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-gray-500">Amenity</p>
-          <div className="flex gap-2 overflow-x-auto">
-            <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-gray-500">Radius</p>
-          <div className="flex gap-2 overflow-x-auto">
-            {RADII.map(({ value, label }) => (
-              <Chip key={value} label={label} on={radius === value} onClick={() => setRadius(value)} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 pb-3">
-        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
-          {addressLoading ? "Locating…" : address ? `Near: ${address}` : "Location unavailable"}
-        </div>
-      </div>
-
       <div className="relative h-[55vh] w-full">
         <Map id="eat-map" defaultCenter={CENTER} defaultZoom={14} mapId="DEMO_MAP_ID"
-          gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>
+          gestureHandling="greedy" streetViewControl={false} style={{ width: "100%", height: "100%" }}>
           {restaurants.map((r) => (
             <AdvancedMarker key={r.id} position={{ lat: r.lat, lng: r.lng }}
               onClick={() => setSelectedId(r.id)}>
@@ -296,6 +212,29 @@ export default function EatPage() {
           )}
         </Map>
         <MyLocationButton mapId="eat-map" onLocate={handleLocate} />
+      </div>
+
+      <div className="px-4 pt-3 pb-2">
+        <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600">
+          {addressLoading ? "Locating…" : address ? `Near: ${address}` : "Location unavailable"}
+        </div>
+      </div>
+
+      {/* Single scrollable row holding every filter chip — tier (single), constraints/diet (multi), amenity, radius (single). */}
+      <div className="flex gap-2 overflow-x-auto px-4 pb-3">
+        {TIERS.map(({ key, label }) => (
+          <Chip key={key} label={label} on={tier === key} onClick={() => selectTier(key)} />
+        ))}
+        {CONSTRAINTS.map(({ key, label }) => (
+          <Chip key={key} label={label} on={constraints.includes(key)} onClick={() => toggleConstraint(key)} />
+        ))}
+        {DIETS.map(({ key, label }) => (
+          <Chip key={key} label={label} on={diets.includes(key)} onClick={() => toggleDiet(key)} />
+        ))}
+        <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
+        {RADII.map(({ value, label }) => (
+          <Chip key={value} label={label} on={radius === value} onClick={() => setRadius(value)} />
+        ))}
       </div>
 
       <div className="px-4 py-3">
