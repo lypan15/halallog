@@ -2,10 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
-import { searchNearbyRestaurants, type Place, type Diet } from "@/lib/places";
+import { searchNearbyRestaurants, type Place, type Diet, type HalalTier, type Constraint } from "@/lib/places";
 
-const FILTERS: { key: Diet; label: string }[] = [
-  { key: "halal", label: "Halal" },
+const TIERS: { key: HalalTier; label: string }[] = [
+  { key: "certified", label: "Halal Certified" },
+  { key: "self", label: "Muslim-owned" },
+  { key: "options", label: "Halal options" },
+];
+
+const CONSTRAINTS: { key: Constraint; label: string }[] = [
+  { key: "porkFree", label: "Pork-free" },
+  { key: "alcoholFree", label: "Alcohol-free" },
+];
+
+const DIETS: { key: Diet; label: string }[] = [
   { key: "vegetarian", label: "Vegetarian" },
   { key: "pescatarian", label: "Pescatarian" },
   { key: "vegan", label: "Vegan" },
@@ -13,9 +23,43 @@ const FILTERS: { key: Diet; label: string }[] = [
 
 const CENTER = { lat: 37.5345, lng: 126.9945 };
 
+// Map pin color by halal tier: darkest green → certified, medium → self, amber → options, gray → none.
+function pinColor(tier?: HalalTier): string {
+  switch (tier) {
+    case "certified": return "#14532d";
+    case "self": return "#2d6a4f";
+    case "options": return "#f59e0b";
+    default: return "#9ca3af";
+  }
+}
+
+function tierLabel(tier: HalalTier): string {
+  return TIERS.find((t) => t.key === tier)?.label ?? tier;
+}
+
+function tierBadgeClass(tier: HalalTier): string {
+  const base = "rounded px-1.5 py-0.5";
+  if (tier === "certified") return `${base} bg-emerald-100 text-emerald-800`;
+  if (tier === "self") return `${base} bg-emerald-50 text-emerald-700`;
+  return `${base} bg-amber-100 text-amber-700`;
+}
+
+// Shared chip style — matches the original filter buttons.
+function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${on ? "border-emerald-700 bg-emerald-700 text-white" : "border-gray-300 bg-white text-gray-700"}`}>
+      {label}
+    </button>
+  );
+}
+
 export default function EatPage() {
   const [all, setAll] = useState<Place[]>([]);
-  const [active, setActive] = useState<Diet[]>([]);
+  const [tier, setTier] = useState<HalalTier | null>(null);
+  const [constraints, setConstraints] = useState<Constraint[]>([]);
+  const [diets, setDiets] = useState<Diet[]>([]);
+  const [prayerOnly, setPrayerOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Load nearby restaurants once (mock now; swap source in lib/places.ts later).
@@ -23,24 +67,55 @@ export default function EatPage() {
     searchNearbyRestaurants().then(setAll);
   }, []);
 
-  const toggle = (f: Diet) =>
-    setActive((p) => (p.includes(f) ? p.filter((x) => x !== f) : [...p, f]));
+  // Halal tier is single-select: clicking the active one clears it.
+  const selectTier = (t: HalalTier) => setTier((p) => (p === t ? null : t));
+  const toggleConstraint = (c: Constraint) =>
+    setConstraints((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]));
+  const toggleDiet = (d: Diet) =>
+    setDiets((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
 
-  // Client-side diet filter (AND). No filter = show all.
-  const restaurants = active.length === 0 ? all : all.filter((r) => active.every((f) => r[f]));
+  // Passes only if it matches the selected tier AND every selected constraint AND
+  // every selected diet AND has a prayer space when that toggle is on. No selection = no filtering.
+  const restaurants = all.filter((r) =>
+    (tier === null || r.halalTier === tier) &&
+    constraints.every((c) => r[c]) &&
+    diets.every((d) => r[d]) &&
+    (!prayerOnly || r.hasPrayerRoom)
+  );
 
   return (
     <div className="flex flex-col">
-      <div className="flex gap-2 overflow-x-auto px-4 py-3">
-        {FILTERS.map(({ key, label }) => {
-          const on = active.includes(key);
-          return (
-            <button key={key} onClick={() => toggle(key)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${on ? "border-emerald-700 bg-emerald-700 text-white" : "border-gray-300 bg-white text-gray-700"}`}>
-              {label}
-            </button>
-          );
-        })}
+      <div className="space-y-3 px-4 py-3">
+        <div>
+          <p className="mb-1 text-xs text-gray-500">Halal</p>
+          <div className="flex gap-2 overflow-x-auto">
+            {TIERS.map(({ key, label }) => (
+              <Chip key={key} label={label} on={tier === key} onClick={() => selectTier(key)} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-gray-500">Constraints</p>
+          <div className="flex gap-2 overflow-x-auto">
+            {CONSTRAINTS.map(({ key, label }) => (
+              <Chip key={key} label={label} on={constraints.includes(key)} onClick={() => toggleConstraint(key)} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-gray-500">Diet</p>
+          <div className="flex gap-2 overflow-x-auto">
+            {DIETS.map(({ key, label }) => (
+              <Chip key={key} label={label} on={diets.includes(key)} onClick={() => toggleDiet(key)} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-gray-500">Amenity</p>
+          <div className="flex gap-2 overflow-x-auto">
+            <Chip label="Prayer space" on={prayerOnly} onClick={() => setPrayerOnly((v) => !v)} />
+          </div>
+        </div>
       </div>
 
       <div className="h-[55vh] w-full">
@@ -50,7 +125,7 @@ export default function EatPage() {
             {restaurants.map((r) => (
               <AdvancedMarker key={r.id} position={{ lat: r.lat, lng: r.lng }}
                 onClick={() => setSelectedId(r.id)}>
-                <Pin background={r.halal ? "#2d6a4f" : "#9ca3af"} glyphColor="#ffffff" borderColor="#ffffff" />
+                <Pin background={pinColor(r.halalTier)} glyphColor="#ffffff" borderColor="#ffffff" />
               </AdvancedMarker>
             ))}
           </Map>
@@ -70,12 +145,14 @@ export default function EatPage() {
                   <span className="font-medium text-gray-900">{r.name}</span>
                   <span className="text-sm text-gray-500">★ {r.rating}</span>
                 </div>
+                {r.address && <p className="mt-0.5 text-xs text-gray-500">{r.address}</p>}
                 <div className="mt-1 flex flex-wrap gap-1 text-xs">
                   <span className="text-gray-500">{r.cuisine}</span>
-                  {r.halal && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">Halal</span>}
+                  {r.halalTier && <span className={tierBadgeClass(r.halalTier)}>{tierLabel(r.halalTier)}</span>}
                   {r.vegetarian && <span className="rounded bg-lime-100 px-1.5 py-0.5 text-lime-700">Vegetarian</span>}
                   {r.pescatarian && <span className="rounded bg-sky-100 px-1.5 py-0.5 text-sky-700">Pescatarian</span>}
                   {r.vegan && <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">Vegan</span>}
+                  {r.hasPrayerRoom && <span className="rounded bg-teal-100 px-1.5 py-0.5 text-teal-700">Prayer space</span>}
                 </div>
               </li>
             ))}
