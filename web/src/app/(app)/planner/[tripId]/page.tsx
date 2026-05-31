@@ -61,7 +61,7 @@ const QUICK_ADD_CATEGORIES = [
   { label: "Things to Do", icon: "🎫" },
   { label: "Shopping", icon: "🛍️" },
   { label: "Transport", icon: "🚌" },
-  { label: "Custom", icon: "📌" },
+  { label: "Other", icon: "📌" },
 ];
 
 const QUICK_ADD = [
@@ -70,7 +70,7 @@ const QUICK_ADD = [
 ];
 
 const BUDGET_CATEGORY_MAP: Record<string, string[]> = {
-  "🍽️ Food": ["Breakfast", "Lunch", "Dinner", "Beverage & Snacks", "Groceries"],
+  "🍽️ Food": ["Restaurant", "Café & Beverage", "Convenience Store", "Snacks", "Groceries", "Other"],
   "🚌 Transport": ["Bus", "Subway", "Taxi", "Flight", "Car Rental", "Ferry", "Other"],
   "🏨 Accommodation": ["Hotel", "Hostel", "Airbnb", "Guesthouse", "Other"],
   "🎫 Activities": ["Tour", "Museum", "Theme Park", "Sports", "Other"],
@@ -498,7 +498,7 @@ function dayPlanBudgetCategory(categoryLabel: string): string | null {
     case "Things to Do": return "🎫 Activities";
     case "Transport": return "🚌 Transport";
     case "Shopping": return "🛍️ Shopping";
-    case "Custom": return "📎 Others";
+    case "Other": return "📎 Others";
     default: return null; // Prayer Space (and anything unmapped)
   }
 }
@@ -1879,10 +1879,10 @@ export default function TripDetailPage() {
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       {(fabCategory.label === "Transport"
-                        ? [...TRANSPORT_TYPES.map((t) => t.type), "Custom"]
+                        ? [...TRANSPORT_TYPES.map((t) => t.type), "Other"]
                         : fabCategory.label === "Food"
-                        ? ["Restaurant", "Café & Beverage", "Convenience Store", "Snacks", "Groceries", "Custom"]
-                        : ["Tour", "Activity", "Experience", "Class", "Custom"]
+                        ? ["Restaurant", "Café & Beverage", "Convenience Store", "Snacks", "Groceries", "Other"]
+                        : ["Tour", "Activity", "Experience", "Class", "Other"]
                       ).map((sub) => (
                         <button
                           key={sub}
