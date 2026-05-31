@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APIProvider, Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
+import { Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
 import { searchNearbyRestaurants, getPlaceDetails, type Place, type Diet, type HalalTier, type Constraint, type PlaceDetails } from "@/lib/places";
 
 const TIERS: { key: HalalTier; label: string }[] = [
@@ -177,23 +177,21 @@ export default function EatPage() {
       </div>
 
       <div className="relative h-[55vh] w-full">
-        <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string}>
-          <Map id="eat-map" defaultCenter={CENTER} defaultZoom={14} mapId="DEMO_MAP_ID"
-            gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>
-            {restaurants.map((r) => (
-              <AdvancedMarker key={r.id} position={{ lat: r.lat, lng: r.lng }}
-                onClick={() => setSelectedId(r.id)}>
-                <Pin background={pinColor(r.halalTier)} glyphColor="#ffffff" borderColor="#ffffff" />
-              </AdvancedMarker>
-            ))}
-            {userPos && (
-              <AdvancedMarker position={userPos}>
-                <Pin background="#2563eb" glyphColor="#ffffff" borderColor="#ffffff" />
-              </AdvancedMarker>
-            )}
-          </Map>
-          <MyLocationButton mapId="eat-map" onLocate={setUserPos} />
-        </APIProvider>
+        <Map id="eat-map" defaultCenter={CENTER} defaultZoom={14} mapId="DEMO_MAP_ID"
+          gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>
+          {restaurants.map((r) => (
+            <AdvancedMarker key={r.id} position={{ lat: r.lat, lng: r.lng }}
+              onClick={() => setSelectedId(r.id)}>
+              <Pin background={pinColor(r.halalTier)} glyphColor="#ffffff" borderColor="#ffffff" />
+            </AdvancedMarker>
+          ))}
+          {userPos && (
+            <AdvancedMarker position={userPos}>
+              <Pin background="#2563eb" glyphColor="#ffffff" borderColor="#ffffff" />
+            </AdvancedMarker>
+          )}
+        </Map>
+        <MyLocationButton mapId="eat-map" onLocate={setUserPos} />
       </div>
 
       <div className="px-4 py-3">

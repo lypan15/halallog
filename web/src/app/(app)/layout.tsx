@@ -1,5 +1,6 @@
 import { AppNav } from "@/components/layout/app-nav";
 import { Header } from "@/components/layout/header";
+import { MapsProvider } from "@/components/maps/maps-provider";
 
 export default function AppLayout({
   children,
@@ -10,7 +11,7 @@ export default function AppLayout({
     <>
       <Header />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-28">
-        {children}
+        <MapsProvider>{children}</MapsProvider>
       </main>
       <AppNav />
     </>
